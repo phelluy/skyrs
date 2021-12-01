@@ -27,6 +27,25 @@ fn print_coo(val: &Vec<f64>, iv: &Vec<usize>, jv: &Vec<usize>) {
     //println!("full={:?}", full);
 }
 
+/// Display coo matrix in full
+fn print_csr(val_csr: &Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize>) {
+    // first search the size of the matrix
+    let n = row_start.len() - 1;
+    println!("nrows={}", n);
+    println!("ncols={}", n);
+
+
+    println!("full=");
+    for i in 0..n {
+        for j in 0..n {
+            print!("{} ", get_csr(val_csr, row_start, jv, i, j));
+        }
+        println!("");
+    }
+    //println!("full={:?}", full);
+}
+
+
 /// Convert a coo matrix to compressed sparse row (csr) format
 /// the matrix must be first sorted and copressed !
 fn coo_to_csr(
@@ -166,8 +185,33 @@ fn coo_sort_compress(
     (val, iv, jv)
 }
 
-fn csr_gauss_elim(val_csr: &mut Vec<f64>, row_start: &mut Vec<usize>, jv: Vec<usize>) {
+fn get_csr(val_csr: &Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize>, i: usize, j: usize) -> f64 {
+    let mut iv = row_start[i];
+    let mut val = 0.;
+    for iv in row_start[i]..row_start[i + 1] {
+        if jv[iv] == j {
+            val = val_csr[iv];
+        }
+    }
+    val
+}
 
+fn csr_gauss_elim(val_csr: &mut Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize>) {
+    // step p (pivot in col. p)
+    let n = row_start.len() - 1;
+    for p in 0..n - 1 {
+        let piv = get_csr(val_csr, row_start, jv, p, p);
+        for i in p + 1..n {
+            let c = get_csr(val_csr, row_start, jv, i, p) / piv;
+            for iv in row_start[i]..row_start[i + 1] {
+                let j = jv[iv];
+                val_csr[iv] -= c * get_csr(val_csr, row_start, jv, p, j);
+            }
+            // Li = Li - c Lp
+            // ou si LU
+            // a[i][p]= c
+        }
+    }
 }
 
 fn main() {
@@ -199,6 +243,8 @@ fn main() {
     coo_sky_extend(&mut val, &mut iv, &mut jv);
     let (mut val, mut iv, mut jv) = coo_sort_compress(val, iv, jv);
     print_coo(&val, &iv, &jv);
-    let (val_csr, row_start, jv) = coo_to_csr(val, iv, jv);
+    let (mut val_csr, row_start, jv) = coo_to_csr(val, iv, jv);
     println!("val={:?} row_start={:?} jv={:?}", val_csr, row_start, jv);
+    csr_gauss_elim(&mut val_csr, &row_start, &jv);
+    print_csr(&val_csr, &row_start, &jv);
 }
