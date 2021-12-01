@@ -1,3 +1,4 @@
+/// Display coo matrix in full
 fn print_coo(val: Vec<f64>, iv: Vec<usize>, jv: Vec<usize>) {
     // first search the size of the matrix
     let imax = iv.iter().max().unwrap() + 1;
@@ -24,6 +25,24 @@ fn print_coo(val: Vec<f64>, iv: Vec<usize>, jv: Vec<usize>) {
         println!("");
     }
     println!("full={:?}", full);
+}
+
+/// Convert a coo matrix to compressed sparse row (csr) format
+fn coo_to_csr(
+    val_coo: Vec<f64>,
+    iv: Vec<usize>,
+    jv: Vec<usize>,
+    val_csr: &mut Vec<f64>,
+    col_index: &mut Vec<usize>,
+    row_start: &mut Vec<usize>,
+) {
+    // some checks
+    assert_eq!(val_coo.len(), iv.len());
+    assert_eq!(val_coo.len(), jv.len());
+    let nrows = *iv.iter().max().unwrap();
+    // first count non zero values in each row
+    let mut row_count = vec![0, nrows];
+    iv.iter().for_each(|iv| row_count[*iv] += 1);
 }
 
 fn main() {
