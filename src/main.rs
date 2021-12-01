@@ -1,5 +1,5 @@
 /// Display coo matrix in full
-fn print_coo(val: Vec<f64>, iv: Vec<usize>, jv: Vec<usize>) {
+fn print_coo(val: &Vec<f64>, iv: &Vec<usize>, jv: &Vec<usize>) {
     // first search the size of the matrix
     let imax = iv.iter().max().unwrap() + 1;
     println!("nrows={}", imax);
@@ -28,14 +28,12 @@ fn print_coo(val: Vec<f64>, iv: Vec<usize>, jv: Vec<usize>) {
 }
 
 /// Convert a coo matrix to compressed sparse row (csr) format
+/// the matrix must be first sorted and copressed !
 fn coo_to_csr(
     val_coo: Vec<f64>,
     iv: Vec<usize>,
     jv: Vec<usize>,
-) -> (Vec<f64>,
-    Vec<usize>,
-    Vec<usize>) 
-{
+) -> (Vec<f64>, Vec<usize>, Vec<usize>) {
     // some checks
     assert_eq!(val_coo.len(), iv.len());
     assert_eq!(val_coo.len(), jv.len());
@@ -43,14 +41,14 @@ fn coo_to_csr(
     // first count non zero values in each row
     let mut row_count = vec![0; nrows];
     iv.iter().for_each(|iv| row_count[*iv] += 1);
-    println!("{:?}",row_count);
-    let mut row_start = vec![0; nrows+1];
+    println!("{:?}", row_count);
+    let mut row_start = vec![0; nrows + 1];
     for i in 0..nrows {
-        row_start[i+1] = row_start[i] + row_count[i]; 
+        row_start[i + 1] = row_start[i] + row_count[i];
     }
     let nnz = row_start[nrows];
-    println!("{:?}",row_start);
-    (val_coo, iv, jv)
+    println!("{:?} nnz={}", row_start, nnz);
+    (val_coo, row_start, jv)
 }
 
 // the following line define a triplet structure with
@@ -84,17 +82,50 @@ impl PartialEq for Triplet {
 
 impl Eq for Triplet {}
 
+fn coo_sky_extend(val: &mut Vec<f64>, iv: &mut Vec<usize>, jv: &mut Vec<usize>) {
+    let imax = iv.iter().max().unwrap() + 1;
+    println!("nrows={}", imax);
+    let jmax = jv.iter().max().unwrap() + 1;
+    println!("ncols={}", jmax);
+
+    assert_eq!(imax, jmax);
+
+    let mut prof = vec![0; imax];
+
+    iv.iter().zip(jv.iter()).for_each(|(&i, &j)| {
+        if j > i {
+            prof[j] = prof[j].max(j - i);
+        } else {
+            prof[i] = prof[i].max(i - j);
+        }
+    });
+
+    println!("prof={:?}", prof);
+
+    // add fake zeros below the skyline
+    for i in 0..imax {
+        for di in 1..prof[i] + 1 {
+            //println!("i={} di={}",i,di);
+            val.push(0.);
+            iv.push(i);
+            jv.push(i - di);
+            val.push(0.);
+            jv.push(i);
+            iv.push(i - di);
+        }
+    }
+}
+
 fn coo_sort_compress(
     val: Vec<f64>,
     iv: Vec<usize>,
     jv: Vec<usize>,
 ) -> (Vec<f64>, Vec<usize>, Vec<usize>) {
-
     // initial verifications
     assert_eq!(val.len(), iv.len());
     assert_eq!(val.len(), jv.len());
     if val.len() == 0 {
-        return (val ,iv, jv)
+        return (val, iv, jv);
     }
     // copy the vector in a vector of tuples
     let mut vtuple: Vec<Triplet> = iv
@@ -135,8 +166,11 @@ fn coo_sort_compress(
     (val, iv, jv)
 }
 
-fn main() {
+fn csr_gauss_elim(val_csr: &mut Vec<f64>, row_start: &mut Vec<usize>, jv: Vec<usize>) {
 
+}
+
+fn main() {
     let mut val = vec![];
 
     let mut iv = vec![];
@@ -149,16 +183,22 @@ fn main() {
         iv.push(i);
         jv.push(i);
     }
-    for i in 0..n-1 {
+    for i in 0..n - 1 {
         val.push(-1.);
         iv.push(i);
-        jv.push(i+1);
+        jv.push(i + 1);
         val.push(-1.);
-        iv.push(i+1);
+        iv.push(i + 1);
         jv.push(i);
     }
 
-    let (val, iv, jv) = coo_sort_compress(val, iv, jv);
-    let (val, iv, jv) = coo_to_csr(val, iv, jv);
-    print_coo(val, iv, jv);
+    val.push(-0.1);
+    iv.push(0);
+    jv.push(4);
+
+    coo_sky_extend(&mut val, &mut iv, &mut jv);
+    let (mut val, mut iv, mut jv) = coo_sort_compress(val, iv, jv);
+    print_coo(&val, &iv, &jv);
+    let (val_csr, row_start, jv) = coo_to_csr(val, iv, jv);
+    println!("val={:?} row_start={:?} jv={:?}", val_csr, row_start, jv);
 }
