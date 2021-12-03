@@ -1,0 +1,655 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass amsart
+\use_default_options true
+\begin_modules
+theorems-ams
+eqs-within-sections
+figs-within-sections
+\end_modules
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+A skyline sparse matrix solver in Rust
+\end_layout
+
+\begin_layout Section
+Theory
+\end_layout
+
+\begin_layout Subsection
+Notations
+\end_layout
+
+\begin_layout Standard
+We want to solve a linear system
+\begin_inset Formula 
+\begin{equation}
+Ax=b,\label{eq:lin_sys}
+\end{equation}
+
+\end_inset
+
+where 
+\begin_inset Formula $A$
+\end_inset
+
+ is a 
+\begin_inset Formula $n\times n$
+\end_inset
+
+ real matrix.
+ We use the following notations:
+\end_layout
+
+\begin_layout Itemize
+The range 
+\begin_inset Formula $i\ldots j$
+\end_inset
+
+ is the set of integers 
+\begin_inset Formula $\{k,i\leq k<j\}$
+\end_inset
+
+.
+ Please note that 
+\begin_inset Formula $j$
+\end_inset
+
+ is not included in the range and that 
+\begin_inset Formula $i\ldots j=\emptyset$
+\end_inset
+
+ if 
+\begin_inset Formula $i\geq j$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+The elements of the matrix 
+\begin_inset Formula $A$
+\end_inset
+
+ are noted 
+\begin_inset Formula $a_{j}^{i}$
+\end_inset
+
+: the row index 
+\begin_inset Formula $i$
+\end_inset
+
+ is noted with a superscript and the column index 
+\begin_inset Formula $j$
+\end_inset
+
+ with a subscript.
+ We use the convention that the row and column indices are in the range
+ 
+\begin_inset Formula $0\ldots n$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $a_{j\ldots l}^{i\ldots k}$
+\end_inset
+
+ is the submatrix of 
+\begin_inset Formula $A$
+\end_inset
+
+ constructed from the given rows and columns ranges.
+\end_layout
+
+\begin_layout Subsection
+\begin_inset Formula $LU$
+\end_inset
+
+ decomposition
+\end_layout
+
+\begin_layout Standard
+It is generally possible to write 
+\begin_inset Formula $A$
+\end_inset
+
+ under the form
+\begin_inset Formula 
+\begin{equation}
+A=LU,\label{eq:lu_dec}
+\end{equation}
+
+\end_inset
+
+where 
+\begin_inset Formula $L$
+\end_inset
+
+ is a lower triangular matrix with a unit diagonal and 
+\begin_inset Formula $U$
+\end_inset
+
+ is an upper triangular matrix.
+ The 
+\begin_inset Formula $LU$
+\end_inset
+
+ decomposition allows to reduce (
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:lin_sys"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) to the resolution of two triangular linear systems.
+\end_layout
+
+\begin_layout Standard
+Traditionally, in the computer algorithm, the decomposition is stored in
+ the same place as the initial matrix 
+\begin_inset Formula $A$
+\end_inset
+
+.
+ The following algorithm (Gauss elimination algorithm) replaces 
+\begin_inset Formula $A$
+\end_inset
+
+ by 
+\begin_inset Formula $L-I+U$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $p$
+\end_inset
+
+ in 
+\begin_inset Formula $0\ldots n-1$
+\end_inset
+
+ (column loop)
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+for 
+\begin_inset Formula $i$
+\end_inset
+
+ in 
+\begin_inset Formula $p+1\ldots n$
+\end_inset
+
+ (loop on lines below line 
+\begin_inset Formula $p$
+\end_inset
+
+)
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Formula $a_{p}^{i}\leftarrow a_{p}^{i}/a_{p}^{p}$
+\end_inset
+
+ (
+\begin_inset Formula $L$
+\end_inset
+
+ update)
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $a_{i\ldots n}^{i}\leftarrow a_{i\ldots n}^{i}-a_{p}^{i}a_{i..n}^{p}$
+\end_inset
+
+ (
+\begin_inset Formula $U$
+\end_inset
+
+ update)
+\end_layout
+
+\end_deeper
+\end_deeper
+\begin_layout Standard
+This algorithm works if the pivot 
+\begin_inset Formula $a_{p}^{p}$
+\end_inset
+
+ does not vanish.
+ The algorithm is very simple, but it becomes a little bit more tricky if
+ we want to save memory and computation time by avoiding to store the zeros
+ of 
+\begin_inset Formula $A$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Subsection
+Sparse skyline matrix
+\end_layout
+
+\begin_layout Standard
+The matrix 
+\begin_inset Formula $A$
+\end_inset
+
+ is said to be sparse if it is made of many zeros.
+ For this kind of matrix it is interesting to find data structures that
+ avoid the storage of the zeros and unnecessary operations with these zeros.
+ A nice case is when the pattern of the zeros is the same for 
+\begin_inset Formula $A$
+\end_inset
+
+ and 
+\begin_inset Formula $L-I+U$
+\end_inset
+
+.
+ It is indeed possible to find such patterns.
+ The skyline storage is an example of such a pattern.
+ We need some definitions:
+\end_layout
+
+\begin_layout Itemize
+An array prof
+\begin_inset Formula $[0\ldots n]$
+\end_inset
+
+ is called a profile of 
+\begin_inset Formula $A$
+\end_inset
+
+ if 
+\begin_inset Formula $A_{j}^{i}=0$
+\end_inset
+
+ when 
+\begin_inset Formula $j<\text{prof}[i]$
+\end_inset
+
+.
+ A couple of indices 
+\begin_inset Formula $(i,j)$
+\end_inset
+
+ is said to be in the profile of 
+\begin_inset Formula $A$
+\end_inset
+
+ if 
+\begin_inset Formula $j\geq\text{prof}[i]$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+An array sky
+\begin_inset Formula $[0\ldots n]$
+\end_inset
+
+ is called a skyline of 
+\begin_inset Formula $A$
+\end_inset
+
+ if 
+\begin_inset Formula $A_{j}^{i}=0$
+\end_inset
+
+ when 
+\begin_inset Formula $i<\text{sky}[j]$
+\end_inset
+
+.
+ A couple of indices 
+\begin_inset Formula $(i,j)$
+\end_inset
+
+ is said to be in the skyline of 
+\begin_inset Formula $A$
+\end_inset
+
+ if 
+\begin_inset Formula $i\geq\text{sky}[j]$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Remark: if 
+\begin_inset Formula $(i,j)$
+\end_inset
+
+ correspond to a non-zero value 
+\begin_inset Formula $a_{j}^{i}\neq0$
+\end_inset
+
+ then 
+\begin_inset Formula $(i,j)$
+\end_inset
+
+ is both in the profile and in the skyline of 
+\begin_inset Formula $A$
+\end_inset
+
+.
+ We can have zeros in the profile and in the skyline, they are simply treated
+ as non-zero terms.
+ The limit cases correspond to prof
+\begin_inset Formula $[i]=0$
+\end_inset
+
+, sky
+\begin_inset Formula $[j]=0$
+\end_inset
+
+ (full matrix storage) and prof
+\begin_inset Formula $[i]=i$
+\end_inset
+
+, sky
+\begin_inset Formula $[j]=j$
+\end_inset
+
+ (diagonal matrix).
+\end_layout
+
+\begin_layout Standard
+It is possible to prove the following theorem.
+\end_layout
+
+\begin_layout Theorem
+If prof is a profile of 
+\begin_inset Formula $A$
+\end_inset
+
+ and sky a skyline of 
+\begin_inset Formula $A$
+\end_inset
+
+ then prof remains a profile and sky a skyline during all the steps of the
+ 
+\begin_inset Formula $Gauss$
+\end_inset
+
+ algorithm and in the end prof is a profile of 
+\begin_inset Formula $L-I+U$
+\end_inset
+
+ and sky a skyline of 
+\begin_inset Formula $L-I+U$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+The most efficient method for storing a sparse matrix in term of memory
+ is the coordinate format.
+ Assume that the matrix has nnz non-zero entries.
+ We store it in an array coo
+\begin_inset Formula $[0\ldots nnz]$
+\end_inset
+
+ of triplets 
+\begin_inset Formula $(i,j,v)$
+\end_inset
+
+ such that
+\begin_inset Formula 
+\[
+\text{coo}[k]=(i,j,v)\Rightarrow a_{j}^{i}=v.
+\]
+
+\end_inset
+
+We will store the lines of 
+\begin_inset Formula $L$
+\end_inset
+
+ (without the diagonal terms) in the array vkgi, the columns of 
+\begin_inset Formula $U$
+\end_inset
+
+ (without the diagonal terms) in vkgs and the diagonal of 
+\begin_inset Formula $U$
+\end_inset
+
+ in vkgd.
+ Because we cannot know a priori the number of non-zero terms in the lines
+ of 
+\begin_inset Formula $L$
+\end_inset
+
+ and in the columns of 
+\begin_inset Formula $U$
+\end_inset
+
+ we need first to construct the skyline and the profile.
+ This is done by the following algorithm:
+\end_layout
+
+\begin_layout Itemize
+Initialization: prof
+\begin_inset Formula $[i]=i$
+\end_inset
+
+, sky
+\begin_inset Formula $[j]=j$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $k$
+\end_inset
+
+ in 
+\begin_inset Formula $0\ldots nnz$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Formula $(i,j,v)=\text{coo}[k]$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+if 
+\begin_inset Formula $i>j$
+\end_inset
+
+ and 
+\begin_inset Formula $v\neq0$
+\end_inset
+
+ then prof
+\begin_inset Formula $[i]=\min(\text{prof}[i],j)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+if 
+\begin_inset Formula $i<j$
+\end_inset
+
+ and 
+\begin_inset Formula $v\neq0$
+\end_inset
+
+ then sky
+\begin_inset Formula $[j]=\min(\text{sky}[j],i)$
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+The two following arrays kgi and kgs will point to the beginning of the
+ lines and the columns in vkgi and vkgs.
+ The following algorithm first count the non-zero terms of each line or
+ columns
+\end_layout
+
+\begin_layout Itemize
+Initialization: 
+\begin_inset Formula $\text{kgi}[0\ldots n+1]=0$
+\end_inset
+
+, 
+\begin_inset Formula $\text{kgs}[0\ldots n+1]=0$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $k$
+\end_inset
+
+ in 
+\begin_inset Formula $0\ldots n$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Formula $\text{kgi}[k]=k-\text{prof}[k]$
+\end_inset
+
+, 
+\begin_inset Formula $\text{kgs}[k]=k-\text{sky}[k]$
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+for 
+\begin_inset Formula $k$
+\end_inset
+
+ in 
+\begin_inset Formula $0\ldots n$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Formula $\text{kgi}[k+1]=\text{kgi}[k+1]+\text{kgi}[k]$
+\end_inset
+
+, 
+\begin_inset Formula $\text{kgs}[k+1]=\text{kgs}[k+1]+\text{kgs}[k]$
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\end_body
+\end_document
