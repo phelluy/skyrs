@@ -352,6 +352,10 @@ fn main() {
     iv.push(0);
     jv.push(4);
 
+    val.push(-0.9);
+    iv.push(0);
+    jv.push(4);
+    
     //coo_sky_extend(&mut val, &mut iv, &mut jv);
     let (mut val, mut iv, mut jv) = coo_sort_compress(val, iv, jv);
     print_coo(&val, &iv, &jv);
