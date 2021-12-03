@@ -867,5 +867,58 @@ for
 
 \end_deeper
 \end_deeper
+\begin_layout Standard
+The operation
+\begin_inset Formula 
+\[
+U_{j}^{i}\leftarrow U_{j}^{i}-L_{p}^{i}U_{j}^{p}
+\]
+
+\end_inset
+
+ can be rewritten with a scalar product where the 
+\begin_inset Formula $p$
+\end_inset
+
+ index is in the range
+\begin_inset Formula 
+\[
+q_{i,j}=\min(i,j)>p\geq\max(\text{prof}[i],\text{sky}[j])=p_{i,j},
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+p\in p_{i,j}\ldots q_{i,j}
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+U_{j}^{i}\leftarrow U_{j}^{i}-L_{p_{i,j}\ldots q_{i,j}}^{i}\cdot U_{j}^{p_{i,j}\ldots q_{i,j}}
+\]
+
+\end_inset
+
+In this notation, if the range is void, then the scalar product vanishes.
+ This means that there is nothing to do for the indices 
+\begin_inset Formula $(i,j)$
+\end_inset
+
+ such that
+\begin_inset Formula 
+\[
+\max(\text{prof}[i],\text{sky}[j])\geq\min(i,j).
+\]
+
+\end_inset
+
+
+\end_layout
+
 \end_body
 \end_document
