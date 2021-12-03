@@ -598,7 +598,15 @@ Initialization:
 \begin_inset Formula $\text{kgs}[0\ldots n+1]=0$
 \end_inset
 
+ (Note the size 
+\begin_inset Formula $n+1$
+\end_inset
 
+ instead of 
+\begin_inset Formula $n$
+\end_inset
+
+)
 \end_layout
 
 \begin_layout Itemize
@@ -622,7 +630,7 @@ for
 \begin_inset Formula $\text{kgs}[k]=k-\text{sky}[k]$
 \end_inset
 
-
+ (count non-zero terms)
 \end_layout
 
 \end_deeper
@@ -647,9 +655,217 @@ for
 \begin_inset Formula $\text{kgs}[k+1]=\text{kgs}[k+1]+\text{kgs}[k]$
 \end_inset
 
+ (cumulative sum)
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+At the end of this algorithm 
+\begin_inset Formula $ni=\text{kgi}[n]$
+\end_inset
+
+ contains the number of non-zero terms in 
+\begin_inset Formula $L$
+\end_inset
+
+ and 
+\begin_inset Formula $ns=\text{kgs}[n]$
+\end_inset
+
+ the number of non-zero terms in 
+\begin_inset Formula $U$
+\end_inset
+
+.
+ In other words
+\begin_inset Formula 
+\[
+nnz=\text{kgi}[n]+\text{kgs}[n]+n=ni+ns+n.
+\]
+
+\end_inset
+
+We can now construct vkgi, vkgs and vkgd with the following algorithm
+\end_layout
+
+\begin_layout Itemize
+Initialization: 
+\begin_inset Formula $\text{vkgi}[0\dots ni]=0$
+\end_inset
+
+, 
+\begin_inset Formula $\text{vkgs}[0\dots ns]=0$
+\end_inset
+
+, 
+\begin_inset Formula $\text{vkgd}[0\dots n]=0$
+\end_inset
+
 
 \end_layout
 
+\begin_layout Itemize
+for 
+\begin_inset Formula $k$
+\end_inset
+
+ in 
+\begin_inset Formula $0\ldots nnz$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Formula $(i,j,v)=\text{coo}[k]$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+if 
+\begin_inset Formula $i=j$
+\end_inset
+
+ then 
+\begin_inset Formula $\text{vkgd}[i]\text{+=}v$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+if 
+\begin_inset Formula $i>j$
+\end_inset
+
+ then 
+\begin_inset Formula $\text{vkgi}[\text{kgi}[i]+i-j-1]\text{+=}v$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+if 
+\begin_inset Formula $i<j$
+\end_inset
+
+ then 
+\begin_inset Formula $\text{vkgs}[\text{kgs}[j]+j-i-1]\text{+=}v$
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Subsection
+Optimisation of the Gauss algorithm
+\end_layout
+
+\begin_layout Standard
+While simple, the Gauss elimination algorithm given above is not well adapted
+ to the skyline representation.
+ Instead of progressing in the matrix row by row, it is more efficient to
+ process column by column.
+ The elimination algorithm can be rewritten as follows (we replace 
+\begin_inset Formula $a$
+\end_inset
+
+ by 
+\begin_inset Formula $L$
+\end_inset
+
+ or 
+\begin_inset Formula $U$
+\end_inset
+
+ for well indicating if we are in the upper or lower part of 
+\begin_inset Formula $A$
+\end_inset
+
+):
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $p$
+\end_inset
+
+ in 
+\begin_inset Formula $0\ldots n-1$
+\end_inset
+
+ (column loop)
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+for 
+\begin_inset Formula $i$
+\end_inset
+
+ in 
+\begin_inset Formula $p+1\ldots n$
+\end_inset
+
+ (loop on lines below line 
+\begin_inset Formula $p$
+\end_inset
+
+)
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Formula $L_{p}^{i}\leftarrow L_{p}^{i}/a_{p}^{p}$
+\end_inset
+
+ (
+\begin_inset Formula $L$
+\end_inset
+
+ update, but only if 
+\begin_inset Formula $p\geq\text{prof}[i]$
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $j$
+\end_inset
+
+ in 
+\begin_inset Formula $i\ldots n$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $U_{j}^{i}\leftarrow U_{j}^{i}-L_{p}^{i}U_{j}^{p}$
+\end_inset
+
+ (
+\begin_inset Formula $U$
+\end_inset
+
+ update, but only if 
+\begin_inset Formula $i>p\geq\text{prof}[i]$
+\end_inset
+
+) and 
+\begin_inset Formula $j>p\geq\text{sky}[j]$
+\end_inset
+
+)
+\end_layout
+
+\end_deeper
 \end_deeper
 \end_body
 \end_document
