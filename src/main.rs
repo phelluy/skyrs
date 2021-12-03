@@ -194,7 +194,7 @@ fn coo_to_sky(
     val.iter()
         .zip(iv.iter().zip(jv.iter()))
         .for_each(|(v, (i, j))| {
-            set_sky(*i, *j, *v, &mut vkgd, &mut vkgs, &mut vkgi, &kld);
+            set_sky(*i, *j, *v, &mut vkgd, &mut vkgs, &mut vkgi, &kld).unwrap();
         });
 
     (vkgd, vkgs, vkgi, kld)
@@ -221,6 +221,8 @@ fn get_sky(
     }
 }
 
+use std::error::Error;
+
 fn set_sky(
     i: usize,
     j: usize,
@@ -229,7 +231,7 @@ fn set_sky(
     vkgs: &mut Vec<f64>,
     vkgi: &mut Vec<f64>,
     kld: &Vec<usize>,
-) {
+) -> Result<(), ()> {
     if i == j {
         vkgd[i] = val;
     } else if j > i && j - i <= kld[j + 1] - kld[j] {
@@ -239,8 +241,11 @@ fn set_sky(
         let k = kld[i] + i - j - 1;
         vkgi[k] = val;
     } else {
-        panic!("i={} j={} kld={:?}", i, j, kld);
+        println!("i={} j={} kld={:?}", i, j, kld);
+        return Err(());
     }
+
+    Ok(())
 }
 
 fn coo_sort_compress(
@@ -324,21 +329,25 @@ fn csr_gauss_elim(val_csr: &mut Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize
 
 fn sky_factolu(vkgd: &mut Vec<f64>, vkgs: &mut Vec<f64>, vkgi: &mut Vec<f64>, kld: &Vec<usize>) {
     let n = kld.len() - 1;
-    for p in 0..n-1 {
+    for p in 0..n - 1 {
         let piv = vkgd[p];
         // fill the column p in L
-        for i in p +1 .. n {
-            let c = get_sky(i,p,vkgd,vkgs,vkgi,kld) / piv; // c = a[i,p] /  a[p,p]
-            set_sky(i,p,c,vkgd,vkgs,vkgi,kld);       // L[i,p] = c
+        for i in p + 1..n {
+            let c = get_sky(i, p, vkgd, vkgs, vkgi, kld) / piv; // c = a[i,p] /  a[p,p]
+            set_sky(i, p, c, vkgd, vkgs, vkgi, kld); // L[i,p] = c
         }
-        for i in p +1 .. n {
-        // use the column p of L for elimination 
-        // Ui = Ui - c Up   U[i,j] = U[i,j] - c U[p,j] for j >= i
-        // diagonal term
-        vkgd[i] -= get_sky(i,p,vkgd,vkgs,vkgi,kld) * get_sky(p,i,vkgd,vkgs,vkgi,kld);
-        // upper diagonal term
+        for i in p + 1..n {
+            // use the column p of L for elimination
+            // Ui = Ui - c Up   U[i,j] = U[i,j] - c U[p,j] for j >= i
+            // diagonal term
+            for j in i..n {
+                let mut u = get_sky(i, j, vkgd, vkgs, vkgi, kld);
+                let c = get_sky(i, p, vkgd, vkgs, vkgi, kld);
+                u -= c * get_sky(p, j, vkgd, vkgs, vkgi, kld);
+                set_sky(i, j, u, vkgd, vkgs, vkgi, kld);
+            }
+            // upper diagonal term
         }
-
     }
 }
 
@@ -376,7 +385,7 @@ fn main() {
     let (mut val, mut iv, mut jv) = coo_sort_compress(val, iv, jv);
     print_coo(&val, &iv, &jv);
 
-    let (vkgd, vkgs, vkgi, kld) = coo_to_sky(val, iv, jv);
+    let (mut vkgd, mut vkgs, mut vkgi, kld) = coo_to_sky(val, iv, jv);
 
     println!(
         "vkgd={:?}
@@ -385,6 +394,8 @@ fn main() {
     kld={:?}",
         vkgd, vkgs, vkgi, kld
     );
+
+    sky_factolu(&mut vkgd, &mut vkgs, &mut vkgi, &kld);
 
     print_sky(&vkgd, &vkgs, &vkgi, &kld);
 
