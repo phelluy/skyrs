@@ -324,6 +324,22 @@ fn csr_gauss_elim(val_csr: &mut Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize
 
 fn sky_factolu(vkgd: &mut Vec<f64>, vkgs: &mut Vec<f64>, vkgi: &mut Vec<f64>, kld: &Vec<usize>) {
     let n = kld.len() - 1;
+    for p in 0..n-1 {
+        let piv = vkgd[p];
+        // fill the column p in L
+        for i in p +1 .. n {
+            let c = get_sky(i,p,vkgd,vkgs,vkgi,kld) / piv; // c = a[i,p] /  a[p,p]
+            set_sky(i,p,c,vkgd,vkgs,vkgi,kld);       // L[i,p] = c
+        }
+        for i in p +1 .. n {
+        // use the column p of L for elimination 
+        // Ui = Ui - c Up   U[i,j] = U[i,j] - c U[p,j] for j >= i
+        // diagonal term
+        vkgd[i] -= get_sky(i,p,vkgd,vkgs,vkgi,kld) * get_sky(p,i,vkgd,vkgs,vkgi,kld);
+        // upper diagonal term
+        }
+
+    }
 }
 
 fn main() {
@@ -355,7 +371,7 @@ fn main() {
     val.push(-0.9);
     iv.push(0);
     jv.push(4);
-    
+
     //coo_sky_extend(&mut val, &mut iv, &mut jv);
     let (mut val, mut iv, mut jv) = coo_sort_compress(val, iv, jv);
     print_coo(&val, &iv, &jv);
