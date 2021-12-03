@@ -34,7 +34,6 @@ fn print_csr(val_csr: &Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize>) {
     println!("nrows={}", n);
     println!("ncols={}", n);
 
-
     println!("full=");
     for i in 0..n {
         for j in 0..n {
@@ -45,9 +44,25 @@ fn print_csr(val_csr: &Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize>) {
     //println!("full={:?}", full);
 }
 
+/// Display coo matrix in full
+fn print_sky(vkgd: &Vec<f64>, vkgs: &Vec<f64>, vkgi: &Vec<f64>, kld: &Vec<usize>) {
+    // first search the size of the matrix
+    let n = kld.len() - 1;
+    println!("nrows={}", n);
+    println!("ncols={}", n);
+
+    println!("full=");
+    for i in 0..n {
+        for j in 0..n {
+            print!("{} ", get_sky(i, j, vkgd, vkgs, vkgi, kld));
+        }
+        println!("");
+    }
+    //println!("full={:?}", full);
+}
 
 /// Convert a coo matrix to compressed sparse row (csr) format
-/// the matrix must be first sorted and copressed !
+/// the matrix must be first sorted and compressed !
 fn coo_to_csr(
     val_coo: Vec<f64>,
     iv: Vec<usize>,
@@ -135,6 +150,99 @@ fn coo_sky_extend(val: &mut Vec<f64>, iv: &mut Vec<usize>, jv: &mut Vec<usize>) 
     }
 }
 
+/// Convert a matrix in triplet format into skyline format
+fn coo_to_sky(
+    val: Vec<f64>,
+    iv: Vec<usize>,
+    jv: Vec<usize>,
+) -> (Vec<f64>, Vec<f64>, Vec<f64>, Vec<usize>) {
+    let imax = iv.iter().max().unwrap() + 1;
+    println!("nrows={}", imax);
+    let jmax = jv.iter().max().unwrap() + 1;
+    println!("ncols={}", jmax);
+
+    assert_eq!(imax, jmax);
+
+    let n = imax;
+
+    let mut prof = vec![0; imax];
+
+    iv.iter().zip(jv.iter()).for_each(|(&i, &j)| {
+        if j > i {
+            prof[j] = prof[j].max(j - i);
+        } else {
+            prof[i] = prof[i].max(i - j);
+        }
+    });
+
+    println!("prof={:?}", prof);
+
+    let mut kld = vec![0; n + 1];
+
+    for i in 0..n {
+        kld[i + 1] = kld[i] + prof[i];
+    }
+
+    // stored values in the upper and lower triangles
+    let nnz = kld[n];
+    println!("kld={:?} \n nnz={}", kld, nnz);
+
+    let mut vkgd = vec![0.; n];
+    let mut vkgs = vec![0.; nnz];
+    let mut vkgi = vec![0.; nnz];
+
+    val.iter()
+        .zip(iv.iter().zip(jv.iter()))
+        .for_each(|(v, (i, j))| {
+            set_sky(*i, *j, *v, &mut vkgd, &mut vkgs, &mut vkgi, &kld);
+        });
+
+    (vkgd, vkgs, vkgi, kld)
+}
+
+fn get_sky(
+    i: usize,
+    j: usize,
+    vkgd: &Vec<f64>,
+    vkgs: &Vec<f64>,
+    vkgi: &Vec<f64>,
+    kld: &Vec<usize>,
+) -> f64 {
+    if i == j {
+        vkgd[i]
+    } else if j > i && j - i <= kld[j + 1] - kld[j] {
+        let k = kld[j] + j - i - 1;
+        vkgs[k]
+    } else if j < i && i - j <= kld[i + 1] - kld[i] {
+        let k = kld[i] + i - j - 1;
+        vkgi[k]
+    } else {
+        0.
+    }
+}
+
+fn set_sky(
+    i: usize,
+    j: usize,
+    val: f64,
+    vkgd: &mut Vec<f64>,
+    vkgs: &mut Vec<f64>,
+    vkgi: &mut Vec<f64>,
+    kld: &Vec<usize>,
+) {
+    if i == j {
+        vkgd[i] = val;
+    } else if j > i && j - i <= kld[j + 1] - kld[j] {
+        let k = kld[j] + j - i - 1;
+        vkgs[k] = val;
+    } else if j < i && i - j <= kld[i + 1] - kld[i] {
+        let k = kld[i] + i - j - 1;
+        vkgi[k] = val;
+    } else {
+        panic!("i={} j={} kld={:?}", i, j, kld);
+    }
+}
+
 fn coo_sort_compress(
     val: Vec<f64>,
     iv: Vec<usize>,
@@ -209,9 +317,13 @@ fn csr_gauss_elim(val_csr: &mut Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize
             }
             // Li = Li - c Lp
             // ou si LU
-            // a[i][p]= c
+            // a[i][p]= c // LU case
         }
     }
+}
+
+fn sky_factolu(vkgd: &mut Vec<f64>, vkgs: &mut Vec<f64>, vkgi: &mut Vec<f64>, kld: &Vec<usize>) {
+    let n = kld.len() - 1;
 }
 
 fn main() {
@@ -240,11 +352,24 @@ fn main() {
     iv.push(0);
     jv.push(4);
 
-    coo_sky_extend(&mut val, &mut iv, &mut jv);
+    //coo_sky_extend(&mut val, &mut iv, &mut jv);
     let (mut val, mut iv, mut jv) = coo_sort_compress(val, iv, jv);
     print_coo(&val, &iv, &jv);
-    let (mut val_csr, row_start, jv) = coo_to_csr(val, iv, jv);
-    println!("val={:?} row_start={:?} jv={:?}", val_csr, row_start, jv);
-    csr_gauss_elim(&mut val_csr, &row_start, &jv);
-    print_csr(&val_csr, &row_start, &jv);
+
+    let (vkgd, vkgs, vkgi, kld) = coo_to_sky(val, iv, jv);
+
+    println!(
+        "vkgd={:?}
+    vkgs={:?}
+    vkgi={:?}
+    kld={:?}",
+        vkgd, vkgs, vkgi, kld
+    );
+
+    print_sky(&vkgd, &vkgs, &vkgi, &kld);
+
+    // let (mut val_csr, row_start, jv) = coo_to_csr(val, iv, jv);
+    // println!("val={:?} row_start={:?} jv={:?}", val_csr, row_start, jv);
+    // csr_gauss_elim(&mut val_csr, &row_start, &jv);
+    // print_csr(&val_csr, &row_start, &jv);
 }
