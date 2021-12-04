@@ -311,6 +311,94 @@ This algorithm works if the pivot
  
 \end_layout
 
+\begin_layout Standard
+It is better to use the Doolittle algorithm.
+ In this algorithm, 
+\begin_inset Formula $L$
+\end_inset
+
+ and 
+\begin_inset Formula $U$
+\end_inset
+
+ are stored in the same array as 
+\begin_inset Formula $A$
+\end_inset
+
+, as before.
+ The algorithm read.
+\end_layout
+
+\begin_layout Itemize
+Initialization: 
+\begin_inset Formula $L-I+U\leftarrow A$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $k$
+\end_inset
+
+ in 
+\begin_inset Formula $0\ldots n$
+\end_inset
+
+ (pivot loop)
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+for 
+\begin_inset Formula $j$
+\end_inset
+
+ in 
+\begin_inset Formula $k\ldots n$
+\end_inset
+
+ (update row of 
+\begin_inset Formula $U$
+\end_inset
+
+ containing the pivot)
+\begin_inset Formula 
+\[
+U_{j}^{k}\leftarrow U_{j}^{k}-\sum_{0\leq p<k}L_{p}^{k}\cdot U_{j}^{p}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $i$
+\end_inset
+
+ in 
+\begin_inset Formula $k+1\ldots n$
+\end_inset
+
+ (update column of 
+\begin_inset Formula $L$
+\end_inset
+
+ just below the pivot)
+\begin_inset Formula 
+\[
+L_{k}^{i}\leftarrow\frac{1}{U_{k}^{k}}\left(L_{k}^{i}-\sum_{0\leq p<k}L_{p}^{i}U_{k}^{p}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
 \begin_layout Subsection
 Sparse skyline matrix
 \end_layout
@@ -762,157 +850,69 @@ if
 
 \end_deeper
 \begin_layout Subsection
-Optimisation of the Gauss algorithm
+Optimisation of the Doolittle algorithm
 \end_layout
 
 \begin_layout Standard
-While simple, the Gauss elimination algorithm given above is not well adapted
- to the skyline representation.
- Instead of progressing in the matrix row by row, it is more efficient to
- process column by column.
- The elimination algorithm can be rewritten as follows (we replace 
-\begin_inset Formula $a$
-\end_inset
-
- by 
-\begin_inset Formula $L$
-\end_inset
-
- or 
-\begin_inset Formula $U$
-\end_inset
-
- for well indicating if we are in the upper or lower part of 
-\begin_inset Formula $A$
-\end_inset
-
-):
+While simple, the Doolittle elimination algorithm given above can yet be
+ optimized for the skyline representation.
+ Let us first rewrite it
 \end_layout
 
 \begin_layout Itemize
 for 
-\begin_inset Formula $p$
+\begin_inset Formula $k$
 \end_inset
 
  in 
-\begin_inset Formula $0\ldots n-1$
+\begin_inset Formula $0\ldots n$
 \end_inset
 
- (column loop)
+ (pivot loop)
 \end_layout
 
 \begin_deeper
-\begin_layout Itemize
-for 
-\begin_inset Formula $i$
-\end_inset
-
- in 
-\begin_inset Formula $p+1\ldots n$
-\end_inset
-
- (loop on lines below line 
-\begin_inset Formula $p$
-\end_inset
-
-)
-\end_layout
-
-\begin_deeper
-\begin_layout Itemize
-\begin_inset Formula $L_{p}^{i}\leftarrow L_{p}^{i}/a_{p}^{p}$
-\end_inset
-
- (
-\begin_inset Formula $L$
-\end_inset
-
- update, but only if 
-\begin_inset Formula $p\geq\text{prof}[i]$
-\end_inset
-
-)
-\end_layout
-
 \begin_layout Itemize
 for 
 \begin_inset Formula $j$
 \end_inset
 
  in 
-\begin_inset Formula $i\ldots n$
+\begin_inset Formula $k\ldots n$
+\end_inset
+
+ (update row of 
+\begin_inset Formula $U$
+\end_inset
+
+ containing the pivot)
+\begin_inset Formula 
+\[
+U_{j}^{k}\leftarrow U_{j}^{k}-\sum_{0\leq p<k}L_{p}^{k}\cdot U_{j}^{p}
+\]
+
 \end_inset
 
 
 \end_layout
 
 \begin_layout Itemize
-\begin_inset Formula $U_{j}^{i}\leftarrow U_{j}^{i}-L_{p}^{i}U_{j}^{p}$
+for 
+\begin_inset Formula $i$
 \end_inset
 
- (
-\begin_inset Formula $U$
+ in 
+\begin_inset Formula $k+1\ldots n$
 \end_inset
 
- update, but only if 
-\begin_inset Formula $i>p\geq\text{prof}[i]$
+ (update column of 
+\begin_inset Formula $L$
 \end_inset
 
-) and 
-\begin_inset Formula $j>p\geq\text{sky}[j]$
-\end_inset
-
-)
-\end_layout
-
-\end_deeper
-\end_deeper
-\begin_layout Standard
-The operation
+ just below the pivot)
 \begin_inset Formula 
 \[
-U_{j}^{i}\leftarrow U_{j}^{i}-L_{p}^{i}U_{j}^{p}
-\]
-
-\end_inset
-
- can be rewritten with a scalar product where the 
-\begin_inset Formula $p$
-\end_inset
-
- index is in the range
-\begin_inset Formula 
-\[
-q_{i,j}=\min(i,j)>p\geq\max(\text{prof}[i],\text{sky}[j])=p_{i,j},
-\]
-
-\end_inset
-
-
-\begin_inset Formula 
-\[
-p\in p_{i,j}\ldots q_{i,j}
-\]
-
-\end_inset
-
-
-\begin_inset Formula 
-\[
-U_{j}^{i}\leftarrow U_{j}^{i}-L_{p_{i,j}\ldots q_{i,j}}^{i}\cdot U_{j}^{p_{i,j}\ldots q_{i,j}}
-\]
-
-\end_inset
-
-In this notation, if the range is void, then the scalar product vanishes.
- This means that there is nothing to do for the indices 
-\begin_inset Formula $(i,j)$
-\end_inset
-
- such that
-\begin_inset Formula 
-\[
-\max(\text{prof}[i],\text{sky}[j])\geq\min(i,j).
+L_{k}^{i}\leftarrow\frac{1}{U_{k}^{k}}\left(L_{k}^{i}-\sum_{0\leq p<k}L_{p}^{i}U_{k}^{p}\right)
 \]
 
 \end_inset
@@ -920,5 +920,6 @@ In this notation, if the range is void, then the scalar product vanishes.
 
 \end_layout
 
+\end_deeper
 \end_body
 \end_document
