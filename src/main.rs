@@ -351,6 +351,118 @@ fn sky_factolu(vkgd: &mut Vec<f64>, vkgs: &mut Vec<f64>, vkgi: &mut Vec<f64>, kl
     }
 }
 
+
+// full LU tools
+#[allow(clippy::needless_range_loop)]
+pub fn plu_facto(a: &mut [[f64; NN]; NN], sigma: &mut [usize; NN]) {
+    // initialize permutation to identity
+    for (p, sig) in sigma.iter_mut().enumerate() {
+        *sig = p;
+    }
+
+    // elimination in column p
+    for p in 0..NN - 1 {
+        // search max pivot
+        let mut sup = 0.;
+        let mut p_max = p;
+        for i in p..NN {
+            let abs_a_ip = (a[i][p]).abs();
+            if sup < abs_a_ip {
+                sup = abs_a_ip;
+                p_max = i;
+            }
+        }
+
+        // swap two lines
+        for j in 0..NN {
+            let aux = a[p][j];
+            a[p][j] = a[p_max][j];
+            a[p_max][j] = aux;
+        }
+
+        // store permutation
+        sigma.swap(p, p_max);
+
+        for i in p + 1..NN {
+            let c = a[i][p] / a[p][p];
+            for j in p + 1..NN {
+                a[i][j] -= c * a[p][j];
+                a[i][p] = c;
+            }
+        }
+    }
+}
+
+// fn permutate_in_place(x: &mut [[f64; M]; NN], sigma: &[usize; NN]) {
+//     for i in 0..NN {
+//         let mut to_swap = sigma[i];
+//         while to_swap < i {
+//             to_swap = sigma[to_swap];
+//         }
+//         x.swap(i, to_swap);
+//     }
+// }
+
+// #[allow(clippy::needless_range_loop)]
+// pub fn plu_solve(a: &[[f64; NN]; NN], sigma: &[usize; NN], x: &mut [[f64; M]; NN]) {
+//     // permutate x
+//     permutate_in_place(x, sigma);
+
+//     for i in 1..NN {
+//         for j in 0..i {
+//             for iw in 0..M {
+//                 x[i][iw] -= a[i][j] * x[j][iw];
+//             }
+//         }
+//     }
+
+//     for iw in 0..M {
+//         x[NN - 1][iw] = x[NN - 1][iw] / a[NN - 1][NN - 1];
+//     }
+//     for i in (0..NN - 1).rev() {
+//         for j in i + 1..NN {
+//             for iw in 0..M {
+//                 x[i][iw] -= a[i][j] * x[j][iw];
+//             }
+//         }
+//         for iw in 0..M {
+//             x[i][iw] = x[i][iw] / a[i][i];
+//         }
+//     }
+// }
+
+fn permutate_in_place_one_var(x: &mut [f64; NN], sigma: &[usize; NN]) {
+    for i in 0..NN {
+        let mut to_swap = sigma[i];
+        while to_swap < i {
+            to_swap = sigma[to_swap];
+        }
+        x.swap(i, to_swap);
+    }
+}
+
+const NN: usize = 10;
+
+#[allow(clippy::needless_range_loop)]
+pub fn plu_solve_one_var(a: &[[f64; NN]; NN], sigma: &[usize; NN], x: &mut [f64; NN]) {
+    permutate_in_place_one_var(x, sigma);
+
+    for i in 1..NN {
+        for j in 0..i {
+            x[i] -= a[i][j] * x[j];
+        }
+    }
+
+    x[NN - 1] = x[NN - 1] / a[NN - 1][NN - 1];
+    for i in (0..NN - 1).rev() {
+        for j in i + 1..NN {
+            x[i] -= a[i][j] * x[j];
+        }
+        x[i] = x[i] / a[i][i];
+    }
+}
+
+
 fn main() {
     let mut val = vec![];
 
