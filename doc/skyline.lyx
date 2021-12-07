@@ -230,7 +230,7 @@ Traditionally, in the computer algorithm, the decomposition is stored in
 \end_inset
 
 .
- The following algorithm (Gauss elimination algorithm) replaces 
+ The following algorithm (Doolittle algorithm) replaces 
 \begin_inset Formula $A$
 \end_inset
 
@@ -242,96 +242,8 @@ Traditionally, in the computer algorithm, the decomposition is stored in
 \end_layout
 
 \begin_layout Itemize
-for 
-\begin_inset Formula $p$
-\end_inset
-
- in 
-\begin_inset Formula $0\ldots n-1$
-\end_inset
-
- (column loop)
-\end_layout
-
-\begin_deeper
-\begin_layout Itemize
-for 
-\begin_inset Formula $i$
-\end_inset
-
- in 
-\begin_inset Formula $p+1\ldots n$
-\end_inset
-
- (loop on lines below line 
-\begin_inset Formula $p$
-\end_inset
-
-)
-\end_layout
-
-\begin_deeper
-\begin_layout Itemize
-\begin_inset Formula $a_{p}^{i}\leftarrow a_{p}^{i}/a_{p}^{p}$
-\end_inset
-
- (
-\begin_inset Formula $L$
-\end_inset
-
- update)
-\end_layout
-
-\begin_layout Itemize
-\begin_inset Formula $a_{i\ldots n}^{i}\leftarrow a_{i\ldots n}^{i}-a_{p}^{i}a_{i..n}^{p}$
-\end_inset
-
- (
-\begin_inset Formula $U$
-\end_inset
-
- update)
-\end_layout
-
-\end_deeper
-\end_deeper
-\begin_layout Standard
-This algorithm works if the pivot 
-\begin_inset Formula $a_{p}^{p}$
-\end_inset
-
- does not vanish.
- The algorithm is very simple, but it becomes a little bit more tricky if
- we want to save memory and computation time by avoiding to store the zeros
- of 
-\begin_inset Formula $A$
-\end_inset
-
-.
- 
-\end_layout
-
-\begin_layout Standard
-It is better to use the Doolittle algorithm.
- In this algorithm, 
-\begin_inset Formula $L$
-\end_inset
-
- and 
-\begin_inset Formula $U$
-\end_inset
-
- are stored in the same array as 
-\begin_inset Formula $A$
-\end_inset
-
-, as before.
- The algorithm read.
-\end_layout
-
-\begin_layout Itemize
 Initialization: 
-\begin_inset Formula $L-I+U\leftarrow A$
+\begin_inset Formula $L-I+U=A$
 \end_inset
 
 .
@@ -343,7 +255,7 @@ for
 \end_inset
 
  in 
-\begin_inset Formula $0\ldots n$
+\begin_inset Formula $1\ldots n$
 \end_inset
 
  (pivot loop)
@@ -352,21 +264,21 @@ for
 \begin_deeper
 \begin_layout Itemize
 for 
-\begin_inset Formula $j$
+\begin_inset Formula $i$
 \end_inset
 
  in 
-\begin_inset Formula $k\ldots n$
+\begin_inset Formula $0\ldots k$
 \end_inset
 
- (update row of 
+ (update the column of 
 \begin_inset Formula $U$
 \end_inset
 
- containing the pivot)
+ above the pivot)
 \begin_inset Formula 
 \[
-U_{j}^{k}\leftarrow U_{j}^{k}-\sum_{0\leq p<k}L_{p}^{k}\cdot U_{j}^{p}
+U_{k}^{i}\leftarrow U_{k}^{i}-\sum_{0\leq p<k}L_{p}^{i}\cdot U_{k}^{p}
 \]
 
 \end_inset
@@ -376,21 +288,21 @@ U_{j}^{k}\leftarrow U_{j}^{k}-\sum_{0\leq p<k}L_{p}^{k}\cdot U_{j}^{p}
 
 \begin_layout Itemize
 for 
-\begin_inset Formula $i$
+\begin_inset Formula $j$
 \end_inset
 
  in 
-\begin_inset Formula $k+1\ldots n$
+\begin_inset Formula $0\ldots k$
 \end_inset
 
  (update column of 
 \begin_inset Formula $L$
 \end_inset
 
- just below the pivot)
+ left to the pivot)
 \begin_inset Formula 
 \[
-L_{k}^{i}\leftarrow\frac{1}{U_{k}^{k}}\left(L_{k}^{i}-\sum_{0\leq p<k}L_{p}^{i}U_{k}^{p}\right)
+L_{j}^{k}\leftarrow\frac{1}{U_{j}^{j}}\left(L_{j}^{k}-\sum_{0\leq p<k}L_{p}^{k}U_{j}^{p}\right)
 \]
 
 \end_inset
@@ -399,6 +311,15 @@ L_{k}^{i}\leftarrow\frac{1}{U_{k}^{k}}\left(L_{k}^{i}-\sum_{0\leq p<k}L_{p}^{i}U
 \end_layout
 
 \end_deeper
+\begin_layout Standard
+This algorithm works if the pivot 
+\begin_inset Formula $a_{k}^{k}$
+\end_inset
+
+ does not vanish.
+ 
+\end_layout
+
 \begin_layout Subsection
 Sparse skyline matrix
 \end_layout

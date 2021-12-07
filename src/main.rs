@@ -351,7 +351,6 @@ fn sky_factolu(vkgd: &mut Vec<f64>, vkgs: &mut Vec<f64>, vkgi: &mut Vec<f64>, kl
     }
 }
 
-
 // full LU tools
 #[allow(clippy::needless_range_loop)]
 pub fn plu_facto(a: &mut [[f64; NN]; NN], sigma: &mut [usize; NN]) {
@@ -389,6 +388,33 @@ pub fn plu_facto(a: &mut [[f64; NN]; NN], sigma: &mut [usize; NN]) {
                 a[i][j] -= c * a[p][j];
                 a[i][p] = c;
             }
+        }
+    }
+}
+
+pub fn doolittle_facto(a: &mut [[f64; NN]; NN], sigma: &mut [usize; NN]) {
+    // initialize permutation to identity
+    for (p, sig) in sigma.iter_mut().enumerate() {
+        *sig = p;
+    }
+
+    // pivot loop
+    //a[1][0] = -a[1][0]/a[0][0]; 
+    for k in 1..NN {
+        //update row left to the pivot
+        for j in 0..k {
+            for p in 0..j {
+                a[k][j] -= a[k][p] * a[p][j];
+            }
+            a[k][j] /= a[j][j];
+            println!("L({},{})={}",k,j,a[k][j]);
+        }
+        //update column p over the pivot
+        for i in 0..k+1 {
+            for p in 0..i {
+                a[i][k] -= a[i][p] * a[p][k];
+            }
+            println!("U({},{})={}",i,k,a[i][k]);
         }
     }
 }
@@ -441,7 +467,7 @@ fn permutate_in_place_one_var(x: &mut [f64; NN], sigma: &[usize; NN]) {
     }
 }
 
-const NN: usize = 10;
+const NN: usize = 5;
 
 #[allow(clippy::needless_range_loop)]
 pub fn plu_solve_one_var(a: &[[f64; NN]; NN], sigma: &[usize; NN], x: &mut [f64; NN]) {
@@ -461,7 +487,6 @@ pub fn plu_solve_one_var(a: &[[f64; NN]; NN], sigma: &[usize; NN], x: &mut [f64;
         x[i] = x[i] / a[i][i];
     }
 }
-
 
 fn main() {
     let mut val = vec![];
@@ -497,19 +522,42 @@ fn main() {
     let (mut val, mut iv, mut jv) = coo_sort_compress(val, iv, jv);
     print_coo(&val, &iv, &jv);
 
+    let mut a = [[0. as f64; NN]; NN];
+    let mut sigma = [0; NN];
+
+    val.iter()
+        .zip(iv.iter().zip(jv.iter()))
+        .for_each(|(&v, (&i, &j))| {
+            a[i][j] = v;
+        });
+
+    doolittle_facto(&mut a, &mut sigma);
+
+
     let (mut vkgd, mut vkgs, mut vkgi, kld) = coo_to_sky(val, iv, jv);
 
-    println!(
-        "vkgd={:?}
-    vkgs={:?}
-    vkgi={:?}
-    kld={:?}",
-        vkgd, vkgs, vkgi, kld
-    );
+    // println!(
+    //     "vkgd={:?}
+    // vkgs={:?}
+    // vkgi={:?}
+    // kld={:?}",
+    //     vkgd, vkgs, vkgi, kld
+    // );
 
     sky_factolu(&mut vkgd, &mut vkgs, &mut vkgi, &kld);
 
+    println!("sky");
     print_sky(&vkgd, &vkgs, &vkgi, &kld);
+
+    println!("doolittle");
+    for i in 0..NN {
+        for j in 0..NN{
+            print!("{} ", a[i][j])
+        }
+        println!();
+    }
+    println!();
+
 
     // let (mut val_csr, row_start, jv) = coo_to_csr(val, iv, jv);
     // println!("val={:?} row_start={:?} jv={:?}", val_csr, row_start, jv);
