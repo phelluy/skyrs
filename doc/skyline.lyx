@@ -111,7 +111,7 @@ where
 \begin_inset Formula $n\times n$
 \end_inset
 
- real matrix.
+ real (for instance) matrix.
  We use the following notations:
 \end_layout
 
@@ -120,8 +120,8 @@ The range
 \begin_inset Formula $i\ldots j$
 \end_inset
 
- is the set of integers 
-\begin_inset Formula $\{k,i\leq k<j\}$
+ is the list of integers 
+\begin_inset Formula $[i,i+1,\ldots,j-1]$
 \end_inset
 
 .
@@ -129,15 +129,16 @@ The range
 \begin_inset Formula $j$
 \end_inset
 
- is not included in the range and that 
-\begin_inset Formula $i\ldots j=\emptyset$
-\end_inset
-
- if 
+ is not included in the range (this is similar to the C, Python and Rust
+ notation) and that if if 
 \begin_inset Formula $i\geq j$
 \end_inset
 
-.
+, then 
+\begin_inset Formula $i\ldots j=[]$
+\end_inset
+
+ (the range is empty).
 \end_layout
 
 \begin_layout Itemize
@@ -175,6 +176,8 @@ The elements of the matrix
 \end_inset
 
  constructed from the given rows and columns ranges.
+ If one range is empty, the submatrix is empty .
+ The scalar product of two empty vectors is assumed to be zero.
 \end_layout
 
 \begin_layout Subsection
@@ -258,34 +261,10 @@ for
 \begin_inset Formula $1\ldots n$
 \end_inset
 
- (pivot loop)
+ (diagonal loop on the pivots)
 \end_layout
 
 \begin_deeper
-\begin_layout Itemize
-for 
-\begin_inset Formula $i$
-\end_inset
-
- in 
-\begin_inset Formula $0\ldots k$
-\end_inset
-
- (update the column of 
-\begin_inset Formula $U$
-\end_inset
-
- above the pivot)
-\begin_inset Formula 
-\[
-U_{k}^{i}\leftarrow U_{k}^{i}-\sum_{0\leq p<k}L_{p}^{i}\cdot U_{k}^{p}
-\]
-
-\end_inset
-
-
-\end_layout
-
 \begin_layout Itemize
 for 
 \begin_inset Formula $j$
@@ -295,14 +274,125 @@ for
 \begin_inset Formula $0\ldots k$
 \end_inset
 
- (update column of 
+ 
+\begin_inset Formula 
+\[
+L_{j}^{k}\leftarrow\frac{1}{U_{j}^{j}}\left(L_{j}^{k}-\sum_{0\leq p<j}L_{p}^{k}U_{j}^{p}\right)
+\]
+
+\end_inset
+
+(update row of 
 \begin_inset Formula $L$
 \end_inset
 
- left to the pivot)
+ left to the pivot).
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $i$
+\end_inset
+
+ in 
+\begin_inset Formula $0\ldots k+1$
+\end_inset
+
+ 
 \begin_inset Formula 
 \[
-L_{j}^{k}\leftarrow\frac{1}{U_{j}^{j}}\left(L_{j}^{k}-\sum_{0\leq p<k}L_{p}^{k}U_{j}^{p}\right)
+U_{k}^{i}\leftarrow U_{k}^{i}-\sum_{0\leq p<i}L_{p}^{i}\cdot U_{k}^{p}
+\]
+
+\end_inset
+
+(update the column of 
+\begin_inset Formula $U$
+\end_inset
+
+ above the pivot).
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+This algorithm works if the pivot 
+\begin_inset Formula $U_{k}^{k}$
+\end_inset
+
+ never vanishes.
+ It can be rewritten with scalar products of sub-rows of 
+\begin_inset Formula $L$
+\end_inset
+
+ with sub-columns of 
+\begin_inset Formula $U$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Itemize
+Initialization: 
+\begin_inset Formula $L-I+U=A$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $k$
+\end_inset
+
+ in 
+\begin_inset Formula $1\ldots n$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+for 
+\begin_inset Formula $j$
+\end_inset
+
+ in 
+\begin_inset Formula $0\ldots k$
+\end_inset
+
+ 
+\begin_inset Formula 
+\[
+L_{j}^{k}\leftarrow L_{j}^{k}-L_{0\ldots j}^{k}\cdot U_{j}^{0\ldots j}
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+L_{j}^{k}\leftarrow\frac{L_{j}^{k}}{U_{j}^{j}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $i$
+\end_inset
+
+ in 
+\begin_inset Formula $0\ldots k+1$
+\end_inset
+
+ 
+\begin_inset Formula 
+\[
+U_{k}^{i}\leftarrow U_{k}^{i}-L_{0\ldots i}^{i}\cdot U_{k}^{\ldots i}
 \]
 
 \end_inset
@@ -311,15 +401,6 @@ L_{j}^{k}\leftarrow\frac{1}{U_{j}^{j}}\left(L_{j}^{k}-\sum_{0\leq p<k}L_{p}^{k}U
 \end_layout
 
 \end_deeper
-\begin_layout Standard
-This algorithm works if the pivot 
-\begin_inset Formula $a_{k}^{k}$
-\end_inset
-
- does not vanish.
- 
-\end_layout
-
 \begin_layout Subsection
 Sparse skyline matrix
 \end_layout
