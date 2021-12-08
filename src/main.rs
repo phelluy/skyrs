@@ -1,3 +1,95 @@
+#[derive(Debug)]
+struct SkyMat {
+    coo: Vec<(usize, usize, f64)>,
+    vkgd: Vec<f64>,
+    vkgs: Vec<f64>,
+    vkgi: Vec<f64>,
+    kld: Vec<usize>,
+    prof: Vec<usize>,
+    sky: Vec<usize>,
+}
+
+impl SkyMat {
+    fn new(coo: Vec<(usize, usize, f64)>) -> SkyMat {
+        SkyMat {
+            coo: coo,
+            vkgd: vec![],
+            vkgs: vec![],
+            vkgi: vec![],
+            kld: vec![],
+            prof: vec![],
+            sky: vec![],
+        }
+    }
+
+    fn print(&self) {
+        // first search the size of the matrix
+        let imax = self.coo.iter().map(|(i, _, _)| i).max().unwrap() + 1;
+        println!("nrows={}", imax);
+        let jmax = self.coo.iter().map(|(_, j, _)| j).max().unwrap() + 1;
+        println!("ncols={}", jmax);
+
+        let mut full = vec![0.; imax * jmax];
+
+        let nz = self.coo.len();
+
+        for (i, j, v) in self.coo.iter() {
+            full[i * imax + j] = *v;
+        }
+
+        println!("full=");
+        for i in 0..imax {
+            for j in 0..jmax {
+                print!("{} ", full[i * jmax + j]);
+            }
+            println!("");
+        }
+    }
+
+    // sort coo array and add values for the same (i,j) index
+    fn compress(&mut self) {
+        // if void matrix do nothing
+        if self.coo.is_empty() {
+            return;
+        };
+
+        // lexicographic sorting
+        self.coo
+            .sort_by(|(i1, j1, _v1), (i2, j2, _v2)| (i1, j1).cmp(&(i2, j2)));
+        //println!("{:?}", vtuple);
+
+        let mut newcoo: Vec<(usize, usize, f64)> = vec![];
+
+        let mut tr1 = self.coo[0];
+        let mut cval = tr1.2;
+
+        self.coo
+            .iter()
+            .take(self.coo.len() - 1)
+            .skip(1)
+            .for_each(|tr2| {
+                if (tr2.0, tr2.1) == (tr1.0, tr1.1) {
+                    cval += tr2.2;
+                } else {
+                    newcoo.push((tr1.0, tr1.1, cval));
+                    tr1 = *tr2;
+                    cval = tr1.2;
+                }
+            });
+        // last push
+        let tr2 = self.coo.last().unwrap();
+        if (tr2.0, tr2.1) == (tr1.0, tr1.1) {
+            cval += tr2.2;
+            newcoo.push((tr1.0, tr1.1, cval));
+        } else {
+            newcoo.push((tr1.0, tr1.1, cval));
+            newcoo.push(*tr2);
+        }
+
+        self.coo = newcoo;
+    }
+}
+
 /// Display coo matrix in full
 fn print_coo(val: &Vec<f64>, iv: &Vec<usize>, jv: &Vec<usize>) {
     // first search the size of the matrix
@@ -327,7 +419,12 @@ fn csr_gauss_elim(val_csr: &mut Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize
     }
 }
 
-fn sky_factolu(vkgd: &mut Vec<f64>, vkgs: &mut Vec<f64>, vkgi: &mut Vec<f64>, kld: &Vec<usize>) {
+fn sky_factolu_classic(
+    vkgd: &mut Vec<f64>,
+    vkgs: &mut Vec<f64>,
+    vkgi: &mut Vec<f64>,
+    kld: &Vec<usize>,
+) {
     let n = kld.len() - 1;
     for p in 0..n - 1 {
         let piv = vkgd[p];
@@ -399,7 +496,7 @@ pub fn doolittle_facto(a: &mut [[f64; NN]; NN], sigma: &mut [usize; NN]) {
     }
 
     // pivot loop
-    //a[1][0] = -a[1][0]/a[0][0]; 
+    //a[1][0] = -a[1][0]/a[0][0];
     for k in 1..NN {
         //update row left to the pivot
         for j in 0..k {
@@ -407,14 +504,14 @@ pub fn doolittle_facto(a: &mut [[f64; NN]; NN], sigma: &mut [usize; NN]) {
                 a[k][j] -= a[k][p] * a[p][j];
             }
             a[k][j] /= a[j][j];
-            println!("L({},{})={}",k,j,a[k][j]);
+            println!("L({},{})={}", k, j, a[k][j]);
         }
         //update column p over the pivot
-        for i in 0..k+1 {
+        for i in 0..k + 1 {
             for p in 0..i {
                 a[i][k] -= a[i][p] * a[p][k];
             }
-            println!("U({},{})={}",i,k,a[i][k]);
+            println!("U({},{})={}", i, k, a[i][k]);
         }
     }
 }
@@ -489,38 +586,35 @@ pub fn plu_solve_one_var(a: &[[f64; NN]; NN], sigma: &[usize; NN], x: &mut [f64;
 }
 
 fn main() {
-    let mut val = vec![];
-
-    let mut iv = vec![];
-    let mut jv = vec![];
+    let mut coo: Vec<(usize, usize, f64)> = vec![];
 
     let n = 5;
 
     for i in 0..n {
-        val.push(2.);
-        iv.push(i);
-        jv.push(i);
+        coo.push((i, i, 2.));
     }
     for i in 0..n - 1 {
-        val.push(-1.);
-        iv.push(i);
-        jv.push(i + 1);
-        val.push(-1.);
-        iv.push(i + 1);
-        jv.push(i);
+        coo.push((i, i + 1, -1.));
+        coo.push((i + 1, i, -1.));
     }
 
-    val.push(-0.1);
-    iv.push(0);
-    jv.push(4);
-
-    val.push(-0.9);
-    iv.push(0);
-    jv.push(4);
+    coo.push((0, 0, -1.));
+    //coo.push((n - 1, n - 1, -1.));
 
     //coo_sky_extend(&mut val, &mut iv, &mut jv);
+    let iv = coo.iter().map(|(i, _, _)| *i).collect();
+    let jv = coo.iter().map(|(_, j, _)| *j).collect();
+    let val = coo.iter().map(|(_, _, v)| *v).collect();
+
     let (mut val, mut iv, mut jv) = coo_sort_compress(val, iv, jv);
     print_coo(&val, &iv, &jv);
+
+    let mut sky = SkyMat::new(coo.clone());
+
+    sky.compress();
+    sky.print();
+    println!("sky={:?}", sky);
+    panic!();
 
     let mut a = [[0. as f64; NN]; NN];
     let mut sigma = [0; NN];
@@ -533,7 +627,6 @@ fn main() {
 
     doolittle_facto(&mut a, &mut sigma);
 
-
     let (mut vkgd, mut vkgs, mut vkgi, kld) = coo_to_sky(val, iv, jv);
 
     // println!(
@@ -544,20 +637,19 @@ fn main() {
     //     vkgd, vkgs, vkgi, kld
     // );
 
-    sky_factolu(&mut vkgd, &mut vkgs, &mut vkgi, &kld);
+    sky_factolu_classic(&mut vkgd, &mut vkgs, &mut vkgi, &kld);
 
     println!("sky");
     print_sky(&vkgd, &vkgs, &vkgi, &kld);
 
     println!("doolittle");
     for i in 0..NN {
-        for j in 0..NN{
+        for j in 0..NN {
             print!("{} ", a[i][j])
         }
         println!();
     }
     println!();
-
 
     // let (mut val_csr, row_start, jv) = coo_to_csr(val, iv, jv);
     // println!("val={:?} row_start={:?} jv={:?}", val_csr, row_start, jv);

@@ -392,7 +392,7 @@ for
  
 \begin_inset Formula 
 \[
-U_{k}^{i}\leftarrow U_{k}^{i}-L_{0\ldots i}^{i}\cdot U_{k}^{\ldots i}
+U_{k}^{i}\leftarrow U_{k}^{i}-L_{0\ldots i}^{i}\cdot U_{k}^{0\ldots i}
 \]
 
 \end_inset
@@ -858,7 +858,7 @@ Optimisation of the Doolittle algorithm
 \begin_layout Standard
 While simple, the Doolittle elimination algorithm given above can yet be
  optimized for the skyline representation.
- Let us first rewrite it
+ Let us first rewrite the main loop:
 \end_layout
 
 \begin_layout Itemize
@@ -867,10 +867,10 @@ for
 \end_inset
 
  in 
-\begin_inset Formula $0\ldots n$
+\begin_inset Formula $1\ldots n$
 \end_inset
 
- (pivot loop)
+
 \end_layout
 
 \begin_deeper
@@ -880,17 +880,13 @@ for
 \end_inset
 
  in 
-\begin_inset Formula $k\ldots n$
+\begin_inset Formula $\text{prof}[k]\ldots k$
 \end_inset
 
- (update row of 
-\begin_inset Formula $U$
-\end_inset
 
- containing the pivot)
 \begin_inset Formula 
 \[
-U_{j}^{k}\leftarrow U_{j}^{k}-\sum_{0\leq p<k}L_{p}^{k}\cdot U_{j}^{p}
+L_{j}^{k}\leftarrow\frac{1}{U_{j}^{j}}\left(L_{j}^{k}-\sum_{p}L_{p}^{k}U_{j}^{p}\right),\quad p\in\max(\text{prof}[k],\text{sky}[j])\ldots j
 \]
 
 \end_inset
@@ -904,17 +900,13 @@ for
 \end_inset
 
  in 
-\begin_inset Formula $k+1\ldots n$
+\begin_inset Formula $\text{sky}[k]\ldots k+1$
 \end_inset
 
- (update column of 
-\begin_inset Formula $L$
-\end_inset
-
- just below the pivot)
+ 
 \begin_inset Formula 
 \[
-L_{k}^{i}\leftarrow\frac{1}{U_{k}^{k}}\left(L_{k}^{i}-\sum_{0\leq p<k}L_{p}^{i}U_{k}^{p}\right)
+U_{k}^{i}\leftarrow U_{k}^{i}-\sum_{p}L_{p}^{i}\cdot U_{k}^{p},\quad p\in\text{max}(\text{prof}[i],\text{sky}[k])\ldots i
 \]
 
 \end_inset
