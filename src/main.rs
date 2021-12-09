@@ -1,11 +1,10 @@
-const WIDTH:usize = 12;
+const WIDTH: usize = 12;
 const PREC: usize = 5;
-const EXP:usize = 2;
+const EXP: usize = 2;
 
-const FMT: (usize,usize,usize) = (WIDTH,PREC,EXP);
+const FMT: (usize, usize, usize) = (WIDTH, PREC, EXP);
 
-
-fn fmt_f64(num: f64, fmt: (usize,usize,usize)) -> String {
+fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
     let width = fmt.0;
     let precision = fmt.1;
     let exp_pad = fmt.2;
@@ -22,7 +21,6 @@ fn fmt_f64(num: f64, fmt: (usize,usize,usize)) -> String {
 
     format!("{:>width$}", num, width = width)
 }
-
 
 #[derive(Debug)]
 struct SkyMat {
@@ -219,19 +217,19 @@ impl SkyMat {
         let n = self.nrows;
         for k in 1..n {
             for j in 0..k {
-                let mut lkj = self.get(k,j);
+                let mut lkj = self.get(k, j);
                 for p in 0..j {
-                    lkj -= self.get(k,p)*self.get(p,j);
+                    lkj -= self.get(k, p) * self.get(p, j);
                 }
-                lkj /= self.get(j,j);
-                self.set(k,j,lkj)?;
+                lkj /= self.get(j, j);
+                self.set(k, j, lkj)?;
             }
-            for i in 0..k+1 {
-                let mut uik = self.get(i,k);
+            for i in 0..k + 1 {
+                let mut uik = self.get(i, k);
                 for p in 0..i {
-                    uik -= self.get(i,p)*self.get(p,k);
-                } 
-                self.set(i,k,uik)?;
+                    uik -= self.get(i, p) * self.get(p, k);
+                }
+                self.set(i, k, uik)?;
             }
         }
         Ok(())
@@ -243,27 +241,62 @@ impl SkyMat {
         for k in 1..n {
             for j in self.prof[k]..k {
                 //println!("lkj init (k,j)={:?} prof={}",(k,j),self.prof[k]);
-                let mut lkj = self.get(k,j);
+                let mut lkj = self.get(k, j);
                 let pmin = self.prof[k].max(self.sky[j]);
                 for p in pmin..j {
                     //println!("lkj update k p j {:?}",(k,p,j));
-                    lkj -= self.get(k,p)*self.get(p,j);
+                    lkj -= self.get(k, p) * self.get(p, j);
                 }
-                lkj /= self.get(j,j);
-                self.set(k,j,lkj)?;
+                lkj /= self.get(j, j);
+                self.set(k, j, lkj)?;
             }
-            for i in self.sky[k]..k+1 {
-                let mut uik = self.get(i,k);
+            for i in self.sky[k]..k + 1 {
+                let mut uik = self.get(i, k);
                 let pmin = self.prof[i].max(self.sky[k]);
                 for p in pmin..i {
-                    uik -= self.get(i,p)*self.get(p,k);
-                } 
-                self.set(i,k,uik)?;
+                    uik -= self.get(i, p) * self.get(p, k);
+                }
+                self.set(i, k, uik)?;
             }
         }
         Ok(())
     }
 
+    fn solve(&self, mut b: Vec<f64>) -> Vec<f64> {
+        // descente
+        let n = self.nrows;
+        for i in 0..n {
+            for p in self.prof[i]..i {
+                b[i] -= self.get(i, p) * b[p];
+            }
+        }
+        b[n - 1] /= self.get(n - 1, n - 1);
+        for j in (0..n - 1).rev() {
+            for i in self.sky[j+1]..j+1 {
+            //for i in 0..j {
+                b[i] -= self.get(i, j + 1) * b[j + 1];
+            }
+            b[j] /= self.get(j, j);
+        }
+        b
+    }
+    fn solve_slow(&self, mut b: Vec<f64>) -> Vec<f64> {
+        // descente
+        let n = self.nrows;
+        for i in 0..n {
+            for p in self.prof[i]..i {
+                b[i] -= self.get(i, p) * b[p];
+            }
+        }
+        b[n - 1] /= self.get(n - 1, n - 1);
+        for i in (0..n - 1).rev() {
+            for j in i + 1..n {
+                b[i] -= self.get(i, j) * b[j];
+            }
+            b[i] /= self.get(i, i);
+        }
+        b
+    }
     fn sky_factolu_classic(&mut self) -> Result<(), ()> {
         self.coo_to_sky();
 
@@ -272,18 +305,18 @@ impl SkyMat {
             let piv = self.vkgd[p];
             // fill the column p in L
             for i in p + 1..n {
-                let c = self.get(i,p) / piv; // c = a[i,p] /  a[p,p]
-                self.set(i,p,c)?;
+                let c = self.get(i, p) / piv; // c = a[i,p] /  a[p,p]
+                self.set(i, p, c)?;
             }
             for i in p + 1..n {
                 // use the column p of L for elimination
                 // Ui = Ui - c Up   U[i,j] = U[i,j] - c U[p,j] for j >= i
                 // diagonal term
                 for j in i..n {
-                    let mut u = self.get(i,j);
-                    let c = self.get(i,p);
-                    u -= c * self.get(p,j);
-                    self.set(i,j,u)?;
+                    let mut u = self.get(i, j);
+                    let c = self.get(i, p);
+                    u -= c * self.get(p, j);
+                    self.set(i, j, u)?;
                 }
                 // upper diagonal term
             }
@@ -291,7 +324,6 @@ impl SkyMat {
         Ok(())
     }
 }
-
 
 /// Display coo matrix in full
 #[allow(dead_code)]
@@ -327,7 +359,10 @@ fn print_sky(
     println!("full_lu=");
     for i in 0..n {
         for j in 0..n {
-            print!("{} ", fmt_f64(get_sky(i, j, vkgd, vkgs, vkgi, skld, ikld),FMT));
+            print!(
+                "{} ",
+                fmt_f64(get_sky(i, j, vkgd, vkgs, vkgi, skld, ikld), FMT)
+            );
         }
         println!("");
     }
@@ -358,8 +393,6 @@ fn coo_to_csr(
     println!("{:?} nnz={}", row_start, nnz);
     (val_coo, row_start, jv)
 }
-
-
 
 fn get_sky(
     i: usize,
@@ -539,7 +572,7 @@ fn main() {
     coo.push((0, 0, 0.));
     coo.push((n - 1, n - 1, 0.));
 
-    coo.push((2,n-1,0.1));
+    coo.push((2, n - 1, 0.1));
 
     let mut sky = SkyMat::new(coo.clone());
 
@@ -570,10 +603,19 @@ fn main() {
     println!("doolittle");
     for i in 0..NN {
         for j in 0..NN {
-            print!("{} ", fmt_f64(a[i][j],FMT));
-            erreur += (a[i][j] - sky.get(i,j)).abs();
+            print!("{} ", fmt_f64(a[i][j], FMT));
+            erreur += (a[i][j] - sky.get(i, j)).abs();
         }
         println!();
     }
-    println!("Facto error={}",erreur);
+    println!("Facto error={}", erreur);
+
+    let x0 = vec![1.; NN];
+
+    let b = sky.vec_mult(&x0);
+
+    let x = sky.solve(b.clone());
+
+    println!("x0={:?}", x0);
+    println!("x={:?}", x);
 }

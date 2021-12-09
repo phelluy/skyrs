@@ -427,6 +427,122 @@ U_{k}^{i}\leftarrow U_{k}^{i}-L_{0\ldots i}^{i}\cdot U_{k}^{0\ldots i}
 
 \end_deeper
 \begin_layout Subsection
+Triangular solve
+\end_layout
+
+\begin_layout Standard
+Once the decomposition is computed for solving
+\begin_inset Formula 
+\[
+Ax=b,
+\]
+
+\end_inset
+
+we solve two triangular systems
+\begin_inset Formula 
+\[
+Ly=b,
+\]
+
+\end_inset
+
+and then 
+\begin_inset Formula 
+\[
+Ux=y.
+\]
+
+\end_inset
+
+The solution of 
+\begin_inset Formula $Ly=b$
+\end_inset
+
+ is given by the following algorithm
+\end_layout
+
+\begin_layout Itemize
+Initialization: 
+\begin_inset Formula $y^{0}=b^{0}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $i$
+\end_inset
+
+ in 
+\begin_inset Formula $1\ldots n$
+\end_inset
+
+
+\begin_inset Formula 
+\[
+y^{i}=b^{i}-\sum_{0\leq j<i }L_{j}^{i}y^{j}
+\]
+
+\end_inset
+
+or
+\begin_inset Formula 
+\[
+y^{i}=b^{i}-L_{0\ldots i}^{i}\cdot y^{0\ldots i}
+\]
+
+\end_inset
+
+The solution of 
+\begin_inset Formula $Ux=y$
+\end_inset
+
+ is given by the following algorithm
+\end_layout
+
+\begin_layout Itemize
+Initialization: 
+\begin_inset Formula $x^{n-1}=y^{n-1}/U_{n-1}^{n-1}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $i$
+\end_inset
+
+ in 
+\begin_inset Formula $[n-2,n-3,\ldots,0]$
+\end_inset
+
+
+\begin_inset Formula 
+\[
+x^{i}=\frac{1}{U_{i}^{i}}\left(y^{i}-\sum_{i+1\leq j<n}U_{j}^{i}x^{j}\right)
+\]
+
+\end_inset
+
+or
+\begin_inset Formula 
+\[
+x^{i}=\frac{1}{U_{i}^{i}}\left(y^{i}-U_{i+1\ldots n}^{i}x^{i+1\ldots n}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Implémentation for sparse matrices
+\end_layout
+
+\begin_layout Subsection
 Sparse skyline matrix
 \end_layout
 
@@ -940,5 +1056,229 @@ U_{k}^{i}\leftarrow U_{k}^{i}-\sum_{p}L_{p}^{i}\cdot U_{k}^{p},\quad p\in\text{m
 \end_layout
 
 \end_deeper
+\begin_layout Subsection
+Optimisation of the triangular solvers
+\end_layout
+
+\begin_layout Standard
+The optimisation of the 
+\begin_inset Formula $L$
+\end_inset
+
+ solver is easy
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $i$
+\end_inset
+
+ in 
+\begin_inset Formula $0\ldots n$
+\end_inset
+
+
+\begin_inset Formula 
+\[
+y^{i}=b^{i}-L_{\text{prof}[i]\ldots i}^{i}\cdot y^{0\ldots i}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The optimisation of the 
+\begin_inset Formula $U$
+\end_inset
+
+ solver is less simple (because the rows of 
+\begin_inset Formula $U$
+\end_inset
+
+ are less natural to access than the columns in the skyline storage).
+ The naive algorithm would be to write:
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $i$
+\end_inset
+
+ in 
+\begin_inset Formula $[n-1,n-2,\ldots,0]$
+\end_inset
+
+
+\begin_inset Formula 
+\[
+x^{i}=\frac{1}{U_{i}^{i}}\left(y^{i}-\sum_{i<j<n}U_{j}^{i}x^{j}\right),\quad\max(i,\text{sky}[j])<j<n
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+But this is not the good method, because one would have to loop on all 
+\begin_inset Formula $j$
+\end_inset
+
+ and test if 
+\begin_inset Formula $\max(i,\text{sky}[j])<j$
+\end_inset
+
+.
+ A better way is to loop on the columns of 
+\begin_inset Formula $U$
+\end_inset
+
+ starting from the last one and add the corresponding contribution to the
+ 
+\begin_inset Formula $x$
+\end_inset
+
+ vector.
+ When the contributions of column 
+\begin_inset Formula $j$
+\end_inset
+
+ are treated we can divide 
+\begin_inset Formula $x^{j-1}$
+\end_inset
+
+by 
+\begin_inset Formula $U_{j-1}^{j-1}$
+\end_inset
+
+and continue.
+ We obtain the following algorithm
+\end_layout
+
+\begin_layout Itemize
+Initialization 
+\begin_inset Formula $x^{n-1}=y^{n-1}/U_{n-1}^{n-1}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $j$
+\end_inset
+
+ in 
+\begin_inset Formula $[n-2,n-3,\ldots,0]$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+for 
+\begin_inset Formula $i$
+\end_inset
+
+ in 
+\begin_inset Formula $0..j+1$
+\end_inset
+
+ 
+\begin_inset Formula 
+\[
+x^{i}\leftarrow x^{i}-U_{j+1}^{i}x^{j+1}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $x^{j}\leftarrow x^{j}/U_{j}^{j}$
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+In this form, we can use the skyline structure, we obtain
+\end_layout
+
+\begin_layout Itemize
+Initialization 
+\begin_inset Formula $x^{n-1}=y^{n-1}/U_{n-1}^{n-1}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+for 
+\begin_inset Formula $j$
+\end_inset
+
+ in 
+\begin_inset Formula $[n-2,n-3,\ldots,0]$
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+for 
+\begin_inset Formula $i$
+\end_inset
+
+ in 
+\begin_inset Formula $\text{sky}[j+1]..j+1$
+\end_inset
+
+ 
+\begin_inset Formula 
+\[
+x^{i}\leftarrow x^{i}-U_{j+1}^{i}x^{j+1}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $x^{j}\leftarrow x^{j}/U_{j}^{j}$
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+Final trick: if the vector 
+\begin_inset Formula $b$
+\end_inset
+
+ is not needed anymore, the computations can be done in place with 
+\begin_inset Formula $x=y=b$
+\end_inset
+
+.
+ At the end 
+\begin_inset Formula $b$
+\end_inset
+
+ is replaced by the solution 
+\begin_inset Formula $x$
+\end_inset
+
+.
+\end_layout
+
 \end_body
 \end_document
