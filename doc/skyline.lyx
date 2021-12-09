@@ -130,7 +130,7 @@ The range
 \end_inset
 
  is not included in the range (this is similar to the C, Python and Rust
- notation) and that if if 
+ notations) and that if if 
 \begin_inset Formula $i\geq j$
 \end_inset
 
@@ -171,12 +171,12 @@ The elements of the matrix
 \begin_inset Formula $a_{j\ldots l}^{i\ldots k}$
 \end_inset
 
- is the submatrix of 
+ is the sub-matrix of 
 \begin_inset Formula $A$
 \end_inset
 
  constructed from the given rows and columns ranges.
- If one range is empty, the submatrix is empty .
+ If one range is empty, the sub-matrix is empty .
  The scalar product of two empty vectors is assumed to be zero.
 \end_layout
 
@@ -241,7 +241,32 @@ Traditionally, in the computer algorithm, the decomposition is stored in
 \begin_inset Formula $L-I+U$
 \end_inset
 
-:
+.
+ For an easier reading, we distinguish between 
+\begin_inset Formula $L$
+\end_inset
+
+, 
+\begin_inset Formula $U$
+\end_inset
+
+ and 
+\begin_inset Formula $A$
+\end_inset
+
+, but in practice we can replace 
+\begin_inset Formula $L$
+\end_inset
+
+ and 
+\begin_inset Formula $U$
+\end_inset
+
+ by 
+\begin_inset Formula $A$
+\end_inset
+
+ in the Doolittle algorithm.
 \end_layout
 
 \begin_layout Itemize
@@ -856,9 +881,9 @@ Optimisation of the Doolittle algorithm
 \end_layout
 
 \begin_layout Standard
-While simple, the Doolittle elimination algorithm given above can yet be
- optimized for the skyline representation.
- Let us first rewrite the main loop:
+The Doolittle elimination algorithm given above can yet be optimized for
+ the skyline representation.
+ This gives:
 \end_layout
 
 \begin_layout Itemize

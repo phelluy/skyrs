@@ -6,9 +6,10 @@ struct SkyMat {
     vkgd: Vec<f64>,
     vkgs: Vec<f64>,
     vkgi: Vec<f64>,
-    kld: Vec<usize>,
-    prof: Vec<usize>,
+    skld: Vec<usize>,
+    ikld: Vec<usize>,
     sky: Vec<usize>,
+    prof: Vec<usize>,
 }
 
 impl SkyMat {
@@ -32,9 +33,10 @@ impl SkyMat {
             vkgd: vec![],
             vkgs: vec![],
             vkgi: vec![],
-            kld: vec![],
-            prof: vec![],
+            skld: vec![],
+            ikld: vec![],
             sky: vec![],
+            prof: vec![],
         }
     }
 
@@ -61,7 +63,26 @@ impl SkyMat {
     }
 
     fn print_lu(&self) {
-        print_sky(&self.vkgd, &self.vkgs, &self.vkgi, &self.kld);
+        print_sky(&self.vkgd, &self.vkgs, &self.vkgi, &self.skld, &self.ikld);
+    }
+
+    fn get(&self, i: usize, j: usize) -> f64 {
+        get_sky(
+            i, j, &self.vkgd, &self.vkgs, &self.vkgi, &self.skld, &self.ikld,
+        )
+    }
+
+    fn set(&mut self, i: usize, j: usize, val: f64) -> Result<(), ()> {
+        set_sky(
+            i,
+            j,
+            val,
+            &mut self.vkgd,
+            &mut self.vkgs,
+            &mut self.vkgi,
+            &self.skld,
+            &self.ikld,
+        )
     }
 
     /// sort coo array and combine values for the same (i,j) index
@@ -127,72 +148,120 @@ impl SkyMat {
         assert_eq!(self.nrows, self.ncols);
         let n = self.nrows;
         let mut prof = vec![0; n];
+        let mut sky = vec![0; n];
+        // initially prof and sky count the non zero terms
         self.coo.iter().for_each(|(i, j, _v)| {
             if j > i {
-                prof[*j] = prof[*j].max(j - i);
+                sky[*j] = sky[*j].max(j - i);
             } else {
                 prof[*i] = prof[*i].max(i - j);
             }
         });
         self.prof = prof;
+        self.sky = sky;
         println!("prof={:?}", self.prof);
-        self.kld = vec![0; n + 1];
+        println!("sky={:?}", self.sky);
+        self.skld = vec![0; n + 1];
         for i in 0..n {
-            self.kld[i + 1] = self.kld[i] + self.prof[i];
+            self.skld[i + 1] = self.skld[i] + self.sky[i];
+            self.sky[i] = i - self.sky[i];
         }
+        self.ikld = vec![0; n + 1];
+        for i in 0..n {
+            self.ikld[i + 1] = self.ikld[i] + self.prof[i];
+            self.prof[i] = i - self.prof[i];
+        }
+        // now sky and prof contain the true profile and skyline
         // stored values in the upper and lower triangles
-        let nnz = self.kld[n];
-        println!("kld={:?} \n nnz={}", self.kld, nnz);
+        let snnz = self.skld[n];
+        let innz = self.ikld[n];
+        println!("skld={:?} \n snnz={}", self.skld, snnz);
+        println!("ikld={:?} \n innz={}", self.ikld, innz);
         let mut vkgd = vec![0.; n];
-        let mut vkgs = vec![0.; nnz];
-        let mut vkgi = vec![0.; nnz];
+        let mut vkgs = vec![0.; snnz];
+        let mut vkgi = vec![0.; innz];
 
         self.coo.iter().for_each(|(i, j, v)| {
-            set_sky(*i, *j, *v, &mut vkgd, &mut vkgs, &mut vkgi, &self.kld).unwrap();
+            set_sky(
+                *i, *j, *v, &mut vkgd, &mut vkgs, &mut vkgi, &self.skld, &self.ikld,
+            )
+            .unwrap();
         });
         self.vkgd = vkgd;
         self.vkgs = vkgs;
         self.vkgi = vkgi;
     }
 
-    fn sky_factolu(&mut self) {}
+    fn sky_factolu_full(&mut self) -> Result<(), ()> {
+        self.coo_to_sky();
+        let n = self.nrows;
+        for k in 1..n {
+            for j in 0..k {
+                let mut lkj = self.get(k,j);
+                for p in 0..j {
+                    lkj -= self.get(k,p)*self.get(p,j);
+                }
+                lkj /= self.get(j,j);
+                self.set(k,j,lkj)?;
+            }
+            for i in 0..k+1 {
+                let mut uik = self.get(i,k);
+                for p in 0..i {
+                    uik -= self.get(i,p)*self.get(p,k);
+                } 
+                self.set(i,k,uik)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn sky_factolu(&mut self) -> Result<(), ()> {
+        self.coo_to_sky();
+        let n = self.nrows;
+        for k in 1..n {
+            for j in self.prof[k]..k {
+                //println!("lkj init (k,j)={:?} prof={}",(k,j),self.prof[k]);
+                let mut lkj = self.get(k,j);
+                let pmin = self.prof[k].max(self.sky[j]);
+                for p in pmin..j {
+                    //println!("lkj update k p j {:?}",(k,p,j));
+                    lkj -= self.get(k,p)*self.get(p,j);
+                }
+                lkj /= self.get(j,j);
+                self.set(k,j,lkj)?;
+            }
+            for i in self.sky[k]..k+1 {
+                let mut uik = self.get(i,k);
+                let pmin = self.prof[i].max(self.sky[k]);
+                for p in pmin..i {
+                    uik -= self.get(i,p)*self.get(p,k);
+                } 
+                self.set(i,k,uik)?;
+            }
+        }
+        Ok(())
+    }
 
     fn sky_factolu_classic(&mut self) -> Result<(), ()> {
         self.coo_to_sky();
 
-        let n = self.kld.len() - 1;
+        let n = self.skld.len() - 1;
         for p in 0..n - 1 {
             let piv = self.vkgd[p];
             // fill the column p in L
             for i in p + 1..n {
-                let c = get_sky(i, p, &self.vkgd, &self.vkgs, &self.vkgi, &self.kld) / piv; // c = a[i,p] /  a[p,p]
-                set_sky(
-                    i,
-                    p,
-                    c,
-                    &mut self.vkgd,
-                    &mut self.vkgs,
-                    &mut self.vkgi,
-                    &mut self.kld,
-                )?; // L[i,p] = c
+                let c = self.get(i,p) / piv; // c = a[i,p] /  a[p,p]
+                self.set(i,p,c)?;
             }
             for i in p + 1..n {
                 // use the column p of L for elimination
                 // Ui = Ui - c Up   U[i,j] = U[i,j] - c U[p,j] for j >= i
                 // diagonal term
                 for j in i..n {
-                    let mut u = get_sky(i, j, &self.vkgd, &self.vkgs, &self.vkgi, &self.kld);
-                    let c = get_sky(i, p, &self.vkgd, &self.vkgs, &self.vkgi, &self.kld);
-                    u -= c * get_sky(p, j, &self.vkgd, &self.vkgs, &self.vkgi, &self.kld);
-                    set_sky(
-                        i,
-                        j,
-                        u,
-                        &mut self.vkgd,
-                        &mut self.vkgs,
-                        &mut self.vkgi,
-                        &self.kld,
-                    )?;
+                    let mut u = self.get(i,j);
+                    let c = self.get(i,p);
+                    u -= c * self.get(p,j);
+                    self.set(i,j,u)?;
                 }
                 // upper diagonal term
             }
@@ -250,16 +319,22 @@ fn print_csr(val_csr: &Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize>) {
 }
 
 /// Display coo matrix in full
-fn print_sky(vkgd: &Vec<f64>, vkgs: &Vec<f64>, vkgi: &Vec<f64>, kld: &Vec<usize>) {
+fn print_sky(
+    vkgd: &Vec<f64>,
+    vkgs: &Vec<f64>,
+    vkgi: &Vec<f64>,
+    skld: &Vec<usize>,
+    ikld: &Vec<usize>,
+) {
     // first search the size of the matrix
-    let n = kld.len() - 1;
+    let n = skld.len() - 1;
     println!("nrows={}", n);
     println!("ncols={}", n);
 
     println!("full_lu=");
     for i in 0..n {
         for j in 0..n {
-            print!("{} ", get_sky(i, j, vkgd, vkgs, vkgi, kld));
+            print!("{} ", get_sky(i, j, vkgd, vkgs, vkgi, skld, ikld));
         }
         println!("");
     }
@@ -372,7 +447,7 @@ fn coo_to_sky(
     val.iter()
         .zip(iv.iter().zip(jv.iter()))
         .for_each(|(v, (i, j))| {
-            set_sky(*i, *j, *v, &mut vkgd, &mut vkgs, &mut vkgi, &kld).unwrap();
+            set_sky(*i, *j, *v, &mut vkgd, &mut vkgs, &mut vkgi, &kld, &kld).unwrap();
         });
 
     (vkgd, vkgs, vkgi, kld)
@@ -384,17 +459,19 @@ fn get_sky(
     vkgd: &Vec<f64>,
     vkgs: &Vec<f64>,
     vkgi: &Vec<f64>,
-    kld: &Vec<usize>,
+    skld: &Vec<usize>,
+    ikld: &Vec<usize>,
 ) -> f64 {
     if i == j {
         vkgd[i]
-    } else if j > i && j - i <= kld[j + 1] - kld[j] {
-        let k = kld[j] + j - i - 1;
+    } else if j > i && j - i <= skld[j + 1] - skld[j] {
+        let k = skld[j] + j - i - 1;
         vkgs[k]
-    } else if j < i && i - j <= kld[i + 1] - kld[i] {
-        let k = kld[i] + i - j - 1;
+    } else if j < i && i - j <= ikld[i + 1] - ikld[i] {
+        let k = ikld[i] + i - j - 1;
         vkgi[k]
     } else {
+        //println!("Read out of profile {} {}",i,j);
         0.
     }
 }
@@ -408,25 +485,25 @@ fn set_sky(
     vkgd: &mut Vec<f64>,
     vkgs: &mut Vec<f64>,
     vkgi: &mut Vec<f64>,
-    kld: &Vec<usize>,
+    skld: &Vec<usize>,
+    ikld: &Vec<usize>,
 ) -> Result<(), ()> {
     if i == j {
         vkgd[i] = val;
-    } else if j > i && j - i <= kld[j + 1] - kld[j] {
-        let k = kld[j] + j - i - 1;
+    } else if j > i && j - i <= skld[j + 1] - skld[j] {
+        let k = skld[j] + j - i - 1;
         vkgs[k] = val;
-    } else if j < i && i - j <= kld[i + 1] - kld[i] {
-        let k = kld[i] + i - j - 1;
+    } else if j < i && i - j <= ikld[i + 1] - ikld[i] {
+        let k = ikld[i] + i - j - 1;
         vkgi[k] = val;
     } else {
-        println!("i={} j={}", i, j);
-        println!("Out of profile access, ignored !");
-        //return Err(());
+        //println!("i={} j={}", i, j);
+        //println!("Out of profile access, ignored !");
+        return Err(());
     }
 
     Ok(())
 }
-
 
 #[allow(dead_code)]
 fn get_csr(val_csr: &Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize>, i: usize, j: usize) -> f64 {
@@ -438,7 +515,6 @@ fn get_csr(val_csr: &Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize>, i: usize
     }
     val
 }
-
 
 // full LU tools
 #[allow(clippy::needless_range_loop)]
@@ -555,6 +631,8 @@ fn main() {
     coo.push((0, 0, 0.));
     coo.push((n - 1, n - 1, 0.));
 
+    coo.push((2,n-1,0.1));
+
     let mut sky = SkyMat::new(coo.clone());
 
     let u = vec![0.; 5];
@@ -567,7 +645,8 @@ fn main() {
     println!("sky={:?}", sky);
     sky.coo_to_sky();
 
-    sky.sky_factolu_classic().unwrap();
+    println!("LU facto");
+    sky.sky_factolu().unwrap();
     sky.print_lu();
 
     let mut a = [[0. as f64; NN]; NN];
