@@ -15,17 +15,15 @@ struct SkyMat {
 impl SkyMat {
     fn new(coo: Vec<(usize, usize, f64)>) -> SkyMat {
         let imax = coo.iter().map(|(i, _, _)| i).max();
-        println!("nrows={:?}", imax);
         let nrows = match imax {
             Some(i) => i + 1,
             None => 0,
         };
         let jmax = coo.iter().map(|(_, j, _)| j).max();
-        let ncols = match imax {
+        let ncols = match jmax {
             Some(j) => j + 1,
             None => 0,
         };
-        println!("ncols={:?}", jmax);
         SkyMat {
             coo: coo,
             nrows: nrows,
@@ -53,10 +51,9 @@ impl SkyMat {
             full[i * imax + j] = *v;
         }
 
-        println!("full=");
         for i in 0..imax {
             for j in 0..jmax {
-                print!("{} ", full[i * jmax + j]);
+                print!("{:<8} ", full[i * jmax + j]);
             }
             println!("");
         }
@@ -147,6 +144,9 @@ impl SkyMat {
     fn coo_to_sky(&mut self) {
         assert_eq!(self.nrows, self.ncols);
         let n = self.nrows;
+        if n == 0 {
+            return;
+        }
         let mut prof = vec![0; n];
         let mut sky = vec![0; n];
         // initially prof and sky count the non zero terms
@@ -159,8 +159,6 @@ impl SkyMat {
         });
         self.prof = prof;
         self.sky = sky;
-        println!("prof={:?}", self.prof);
-        println!("sky={:?}", self.sky);
         self.skld = vec![0; n + 1];
         for i in 0..n {
             self.skld[i + 1] = self.skld[i] + self.sky[i];
@@ -175,8 +173,6 @@ impl SkyMat {
         // stored values in the upper and lower triangles
         let snnz = self.skld[n];
         let innz = self.ikld[n];
-        println!("skld={:?} \n snnz={}", self.skld, snnz);
-        println!("ikld={:?} \n innz={}", self.ikld, innz);
         let mut vkgd = vec![0.; n];
         let mut vkgs = vec![0.; snnz];
         let mut vkgi = vec![0.; innz];
@@ -270,35 +266,6 @@ impl SkyMat {
     }
 }
 
-/// Display coo matrix in full
-#[allow(dead_code)]
-fn print_coo(val: &Vec<f64>, iv: &Vec<usize>, jv: &Vec<usize>) {
-    // first search the size of the matrix
-    let imax = iv.iter().max().unwrap() + 1;
-    println!("imax={}", imax);
-    let jmax = jv.iter().max().unwrap() + 1;
-    println!("jmax={}", jmax);
-
-    let mut full = vec![0.; imax * jmax];
-
-    let nz = val.len();
-
-    assert_eq!(nz, iv.len());
-    assert_eq!(nz, jv.len());
-
-    for (v, (i, j)) in val.iter().zip(iv.iter().zip(jv.iter())) {
-        full[i * imax + j] = *v;
-    }
-
-    println!("full=");
-    for i in 0..imax {
-        for j in 0..jmax {
-            print!("{} ", full[i * jmax + j]);
-        }
-        println!("");
-    }
-    //println!("full={:?}", full);
-}
 
 /// Display coo matrix in full
 #[allow(dead_code)]
@@ -334,7 +301,7 @@ fn print_sky(
     println!("full_lu=");
     for i in 0..n {
         for j in 0..n {
-            print!("{} ", get_sky(i, j, vkgd, vkgs, vkgi, skld, ikld));
+            print!("{:+10.4E} ", get_sky(i, j, vkgd, vkgs, vkgi, skld, ikld));
         }
         println!("");
     }
@@ -366,92 +333,7 @@ fn coo_to_csr(
     (val_coo, row_start, jv)
 }
 
-#[allow(dead_code)]
-fn coo_sky_extend(val: &mut Vec<f64>, iv: &mut Vec<usize>, jv: &mut Vec<usize>) {
-    let imax = iv.iter().max().unwrap() + 1;
-    println!("nrows={}", imax);
-    let jmax = jv.iter().max().unwrap() + 1;
-    println!("ncols={}", jmax);
 
-    assert_eq!(imax, jmax);
-
-    let mut prof = vec![0; imax];
-
-    iv.iter().zip(jv.iter()).for_each(|(&i, &j)| {
-        if j > i {
-            prof[j] = prof[j].max(j - i);
-        } else {
-            prof[i] = prof[i].max(i - j);
-        }
-    });
-
-    println!("prof={:?}", prof);
-
-    // add fake zeros below the skyline
-    for i in 0..imax {
-        for di in 1..prof[i] + 1 {
-            //println!("i={} di={}",i,di);
-            val.push(0.);
-            iv.push(i);
-            jv.push(i - di);
-            val.push(0.);
-            jv.push(i);
-            iv.push(i - di);
-        }
-    }
-}
-
-/// Convert a matrix in triplet format into skyline format
-#[allow(dead_code)]
-fn coo_to_sky(
-    val: Vec<f64>,
-    iv: Vec<usize>,
-    jv: Vec<usize>,
-) -> (Vec<f64>, Vec<f64>, Vec<f64>, Vec<usize>) {
-    let imax = iv.iter().max().unwrap() + 1;
-    println!("nrows={}", imax);
-    let jmax = jv.iter().max().unwrap() + 1;
-
-    println!("ncols={}", jmax);
-
-    assert_eq!(imax, jmax);
-
-    let n = imax;
-
-    let mut prof = vec![0; imax];
-
-    iv.iter().zip(jv.iter()).for_each(|(&i, &j)| {
-        if j > i {
-            prof[j] = prof[j].max(j - i);
-        } else {
-            prof[i] = prof[i].max(i - j);
-        }
-    });
-
-    println!("prof={:?}", prof);
-
-    let mut kld = vec![0; n + 1];
-
-    for i in 0..n {
-        kld[i + 1] = kld[i] + prof[i];
-    }
-
-    // stored values in the upper and lower triangles
-    let nnz = kld[n];
-    println!("kld={:?} \n nnz={}", kld, nnz);
-
-    let mut vkgd = vec![0.; n];
-    let mut vkgs = vec![0.; nnz];
-    let mut vkgi = vec![0.; nnz];
-
-    val.iter()
-        .zip(iv.iter().zip(jv.iter()))
-        .for_each(|(v, (i, j))| {
-            set_sky(*i, *j, *v, &mut vkgd, &mut vkgs, &mut vkgi, &kld, &kld).unwrap();
-        });
-
-    (vkgd, vkgs, vkgi, kld)
-}
 
 fn get_sky(
     i: usize,
@@ -658,12 +540,14 @@ fn main() {
 
     doolittle_facto(&mut a, &mut sigma);
 
+    let mut erreur = 0.;
     println!("doolittle");
     for i in 0..NN {
         for j in 0..NN {
-            print!("{} ", a[i][j])
+            print!("{} ", a[i][j]);
+            erreur += (a[i][j] - sky.get(i,j)).abs();
         }
         println!();
     }
-    println!();
+    println!("Facto error={}",erreur);
 }
