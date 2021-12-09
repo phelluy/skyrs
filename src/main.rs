@@ -1,3 +1,29 @@
+const WIDTH:usize = 12;
+const PREC: usize = 5;
+const EXP:usize = 2;
+
+const FMT: (usize,usize,usize) = (WIDTH,PREC,EXP);
+
+
+fn fmt_f64(num: f64, fmt: (usize,usize,usize)) -> String {
+    let width = fmt.0;
+    let precision = fmt.1;
+    let exp_pad = fmt.2;
+    let mut num = format!("{:+.precision$e}", num, precision = precision);
+    // Safe to `unwrap` as `num` is guaranteed to contain `'e'`
+    let exp = num.split_off(num.find('e').unwrap());
+
+    let (sign, exp) = if exp.starts_with("e-") {
+        ('-', &exp[2..])
+    } else {
+        ('+', &exp[1..])
+    };
+    num.push_str(&format!("e{}{:0>pad$}", sign, exp, pad = exp_pad));
+
+    format!("{:>width$}", num, width = width)
+}
+
+
 #[derive(Debug)]
 struct SkyMat {
     coo: Vec<(usize, usize, f64)>,
@@ -301,7 +327,7 @@ fn print_sky(
     println!("full_lu=");
     for i in 0..n {
         for j in 0..n {
-            print!("{:+10.4E} ", get_sky(i, j, vkgd, vkgs, vkgi, skld, ikld));
+            print!("{} ", fmt_f64(get_sky(i, j, vkgd, vkgs, vkgi, skld, ikld),FMT));
         }
         println!("");
     }
@@ -544,7 +570,7 @@ fn main() {
     println!("doolittle");
     for i in 0..NN {
         for j in 0..NN {
-            print!("{} ", a[i][j]);
+            print!("{} ", fmt_f64(a[i][j],FMT));
             erreur += (a[i][j] - sky.get(i,j)).abs();
         }
         println!();
