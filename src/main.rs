@@ -243,6 +243,44 @@ impl SkyMat {
                 //println!("lkj init (k,j)={:?} prof={}",(k,j),self.prof[k]);
                 let mut lkj = self.get(k, j);
                 let pmin = self.prof[k].max(self.sky[j]);
+                let lstart = self.ikld[k]+k-pmin-1;
+                let lend = lstart + j - pmin;
+                let l_iter = self.vkgi[lstart..lend].iter();
+                println!("k={} {} {} {}",k,self.skld[j],j,pmin);
+                let toto = self.get(pmin,j);
+                println!("toto={}",toto);
+                let mut ustart = self.skld[j]+j-pmin-1;
+                let uend = lstart + j - pmin;
+                let u_iter = self.vkgs[ustart..uend].iter();
+                let sum:f64 =  l_iter.zip(u_iter).map(|(l,u)| {*l * *u}).sum();
+                lkj -= sum;
+                // for p in pmin..j {
+                //     //println!("lkj update k p j {:?}",(k,p,j));
+                //     lkj -= self.get(k, p) * self.get(p, j);
+                // }
+                lkj /= self.get(j, j);
+                self.set(k, j, lkj)?;
+            }
+            for i in self.sky[k]..k + 1 {
+                let mut uik = self.get(i, k);
+                let pmin = self.prof[i].max(self.sky[k]);
+                for p in pmin..i {
+                    uik -= self.get(i, p) * self.get(p, k);
+                }
+                self.set(i, k, uik)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn sky_factolu_debug(&mut self) -> Result<(), ()> {
+        self.coo_to_sky();
+        let n = self.nrows;
+        for k in 1..n {
+            for j in self.prof[k]..k {
+                //println!("lkj init (k,j)={:?} prof={}",(k,j),self.prof[k]);
+                let mut lkj = self.get(k, j);
+                let pmin = self.prof[k].max(self.sky[j]);
                 for p in pmin..j {
                     //println!("lkj update k p j {:?}",(k,p,j));
                     lkj -= self.get(k, p) * self.get(p, j);
@@ -404,6 +442,7 @@ fn get_sky(
     ikld: &Vec<usize>,
 ) -> f64 {
     if i == j {
+        //println!("(i,j)={} {}",i,j);
         vkgd[i]
     } else if j > i && j - i <= skld[j + 1] - skld[j] {
         let k = skld[j] + j - i - 1;
@@ -572,7 +611,16 @@ fn main() {
     coo.push((0, 0, 0.));
     coo.push((n - 1, n - 1, 0.));
 
-    coo.push((2, n - 1, 0.1));
+    coo.push((2, 0, 0.1));
+    coo.push((4, n - 1, 0.1));
+
+    coo = vec![];
+
+    for i in 0..n {
+        for j in 0..n {
+            coo.push((i,j,1./(i+j+1) as f64));
+        }
+    }
 
     let mut sky = SkyMat::new(coo.clone());
 
@@ -587,7 +635,7 @@ fn main() {
     sky.coo_to_sky();
 
     println!("LU facto");
-    sky.sky_factolu().unwrap();
+    sky.sky_factolu_debug().unwrap();
     sky.print_lu();
 
     let mut a = [[0. as f64; NN]; NN];
@@ -610,7 +658,7 @@ fn main() {
     }
     println!("Facto error={}", erreur);
 
-    let x0 = vec![1.; NN];
+    let x0 = (1..NN+1).map(|i| i as f64).collect();
 
     let b = sky.vec_mult(&x0);
 
