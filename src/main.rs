@@ -93,6 +93,38 @@ impl SkyMat {
         )
     }
 
+    fn get_l(&self, i: usize, j: usize) -> f64 {
+        // mémo:
+        // self.vkgs[self.skld[j] + j - i - 1]   U(i,j)
+        // self.vkgi[self.ikld[i] + i - j - 1]   L(i,j)
+        self.vkgi[self.ikld[i] + i - j - 1]
+    }
+
+    fn get_u(&self, i: usize, j: usize) -> f64 {
+        if i != j {
+            self.vkgs[self.skld[j] + j - i - 1]
+        } else {
+            self.vkgd[i]
+        }
+    }
+
+    fn set_l(&mut self, i: usize, j: usize, val: f64) -> Result<(), ()> {
+        // mémo:
+        // self.vkgs[self.skld[j] + j - i - 1]   U(i,j)
+        // self.vkgi[self.ikld[i] + i - j - 1]   L(i,j)
+        self.vkgi[self.ikld[i] + i - j - 1] = val;
+        Ok(())
+    }
+
+    fn set_u(&mut self, i: usize, j: usize, val: f64) -> Result<(), ()> {
+        if i != j {
+            self.vkgs[self.skld[j] + j - i - 1] = val;
+        } else {
+            self.vkgd[i] = val;
+        }
+        Ok(())
+    }
+
     fn set(&mut self, i: usize, j: usize, val: f64) -> Result<(), ()> {
         set_sky(
             i,
@@ -235,6 +267,50 @@ impl SkyMat {
         Ok(())
     }
 
+    fn sky_factolu_wrong(&mut self) -> Result<(), ()> {
+        // mémo:
+        // self.vkgs[self.skld[j] + j - i - 1]   U(i,j)
+        // self.vkgi[self.ikld[i] + i - j - 1]   L(i,j)
+        self.coo_to_sky();
+        let n = self.nrows;
+        for k in 1..n {
+            for j in self.prof[k]..k {
+                //println!("lkj init (k,j)={:?} prof={}",(k,j),self.prof[k]);
+                //let mut lkj = self.get(k, j);
+                let mut lkj = self.vkgi[self.skld[k] + k - j - 1];
+                let pmin = self.prof[k].max(self.sky[j]);
+                for p in pmin..j {
+                    //println!("lkj update k p j {:?}",(k,p,j));
+                    assert!(p != j && k != p);
+                    lkj -= self.vkgi[self.skld[k] + k - p - 1] *    // self.get(k, p) *
+                     self.vkgs[self.skld[j] + j - p - 1]; //self.get(p, j);
+                }
+                lkj /= self.vkgd[j]; //self.get(j, j);  // warning if div by zero !
+
+                self.vkgi[self.skld[k] + k - j - 1] = lkj; //self.set(k, j, lkj)?;
+            }
+            for i in self.sky[k]..k {
+                println!("k i j {} {}", k, i);
+                let mut uik = self.vkgs[self.skld[k] + k - i - 1]; //self.get(i, k); //
+                let pmin = self.prof[i].max(self.sky[k]);
+                for p in pmin..i {
+                    assert!(p != i && k != p);
+                    uik -= self.vkgi[self.ikld[i] + i - p - 1] * // self.get(i, p) * 
+                    self.vkgs[self.skld[k] + k - p - 1] //self.get(p, k);
+                }
+                self.vkgs[self.skld[k] + k - i - 1] = uik; //self.set(i, k, uik)?;
+            }
+            let mut uik = self.vkgd[k]; //self.get(k, k);
+            let pmin = self.prof[k].max(self.sky[k]);
+            for p in pmin..k {
+                uik -= self.vkgi[self.ikld[k] + k - p - 1] * // self.get(k, p) * 
+                self.vkgs[self.skld[k] + k - p - 1] //self.get(p, k);
+            }
+            self.vkgd[k] = uik; // self.set(k, k, uik)?;
+        }
+        Ok(())
+    }
+
     fn sky_factolu(&mut self) -> Result<(), ()> {
         self.coo_to_sky();
         let n = self.nrows;
@@ -243,78 +319,64 @@ impl SkyMat {
                 //println!("lkj init (k,j)={:?} prof={}",(k,j),self.prof[k]);
                 let mut lkj = self.get(k, j);
                 let pmin = self.prof[k].max(self.sky[j]);
-                let lstart = self.ikld[k]+k-pmin-1;
-                let lend = lstart + j - pmin;
-                let l_iter = self.vkgi[lstart..lend].iter();
-                println!("k={} {} {} {}",k,self.skld[j],j,pmin);
-                let toto = self.get(pmin,j);
-                println!("toto={}",toto);
-                let mut ustart = self.skld[j]+j-pmin-1;
-                let uend = lstart + j - pmin;
-                let u_iter = self.vkgs[ustart..uend].iter();
-                let sum:f64 =  l_iter.zip(u_iter).map(|(l,u)| {*l * *u}).sum();
-                lkj -= sum;
-                // for p in pmin..j {
-                //     //println!("lkj update k p j {:?}",(k,p,j));
-                //     lkj -= self.get(k, p) * self.get(p, j);
-                // }
-                lkj /= self.get(j, j);
-                self.set(k, j, lkj)?;
-            }
-            for i in self.sky[k]..k + 1 {
-                let mut uik = self.get(i, k);
-                let pmin = self.prof[i].max(self.sky[k]);
-                for p in pmin..i {
-                    uik -= self.get(i, p) * self.get(p, k);
-                }
-                self.set(i, k, uik)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn sky_factolu_debug(&mut self) -> Result<(), ()> {
-        self.coo_to_sky();
-        let n = self.nrows;
-        for k in 1..n {
-            for j in self.prof[k]..k {
-                //println!("lkj init (k,j)={:?} prof={}",(k,j),self.prof[k]);
-                let mut lkj = self.get(k, j);
-                let pmin = self.prof[k].max(self.sky[j]);
+                println!("k pmin j {} {} {}", k, pmin, j);
                 for p in pmin..j {
                     //println!("lkj update k p j {:?}",(k,p,j));
-                    lkj -= self.get(k, p) * self.get(p, j);
+                    lkj -= self.get_l(k, p) * self.get_u(p, j);
                 }
-                lkj /= self.get(j, j);
-                self.set(k, j, lkj)?;
+                lkj /= self.get_u(j, j); // warning if div by zero !
+                self.set_l(k, j, lkj)?;
             }
             for i in self.sky[k]..k + 1 {
                 let mut uik = self.get(i, k);
                 let pmin = self.prof[i].max(self.sky[k]);
                 for p in pmin..i {
-                    uik -= self.get(i, p) * self.get(p, k);
+                    uik -= self.get_l(i, p) * self.get_u(p, k);
                 }
-                self.set(i, k, uik)?;
+                self.set_u(i, k, uik)?;
             }
         }
         Ok(())
     }
-
     fn solve(&self, mut b: Vec<f64>) -> Vec<f64> {
+        // mémo:
+        // self.vkgs[self.skld[j] + j - i - 1]   U(i,j)
+        // self.vkgi[self.ikld[i] + i - j - 1]   L(i,j)
+        // descente
+        let n = self.nrows;
+        for i in 0..n {
+            let start = self.ikld[i] + i;
+            for p in self.prof[i]..i {
+                b[i] -= self.vkgi[start - p - 1] * b[p]; //self.get(i, p) * b[p];
+            }
+        }
+        b[n - 1] /= self.vkgd[n - 1]; //get(n - 1, n - 1);
+        for j in (0..n - 1).rev() {
+            let start = self.skld[j + 1] + j;
+            for i in self.sky[j + 1]..j + 1 {
+                //for i in 0..j {
+                b[i] -= self.vkgs[start - i] * b[j + 1]; //self.get(i, j + 1) * b[j + 1];
+            }
+            b[j] /= self.vkgd[j]; //self.get(j, j);
+        }
+        b
+    }
+
+    fn solve_debug(&self, mut b: Vec<f64>) -> Vec<f64> {
         // descente
         let n = self.nrows;
         for i in 0..n {
             for p in self.prof[i]..i {
-                b[i] -= self.get(i, p) * b[p];
+                b[i] -= self.get_l(i, p) * b[p];
             }
         }
         b[n - 1] /= self.get(n - 1, n - 1);
         for j in (0..n - 1).rev() {
-            for i in self.sky[j+1]..j+1 {
-            //for i in 0..j {
-                b[i] -= self.get(i, j + 1) * b[j + 1];
+            for i in self.sky[j + 1]..j + 1 {
+                //for i in 0..j {
+                b[i] -= self.get_u(i, j + 1) * b[j + 1];
             }
-            b[j] /= self.get(j, j);
+            b[j] /= self.get_u(j, j);
         }
         b
     }
@@ -441,6 +503,9 @@ fn get_sky(
     skld: &Vec<usize>,
     ikld: &Vec<usize>,
 ) -> f64 {
+    let n = vkgd.len();
+    assert!(i < n);
+    assert!(j < n);
     if i == j {
         //println!("(i,j)={} {}",i,j);
         vkgd[i]
@@ -468,6 +533,10 @@ fn set_sky(
     skld: &Vec<usize>,
     ikld: &Vec<usize>,
 ) -> Result<(), ()> {
+    let n = vkgd.len();
+    assert!(i < n);
+    assert!(j < n);
+
     if i == j {
         vkgd[i] = val;
     } else if j > i && j - i <= skld[j + 1] - skld[j] {
@@ -614,13 +683,13 @@ fn main() {
     coo.push((2, 0, 0.1));
     coo.push((4, n - 1, 0.1));
 
-    coo = vec![];
+    // coo = vec![];
 
-    for i in 0..n {
-        for j in 0..n {
-            coo.push((i,j,1./(i+j+1) as f64));
-        }
-    }
+    // for i in 0..n {
+    //     for j in 0..n {
+    //         coo.push((i, j, 1. / (i + j + 1) as f64));
+    //     }
+    // }
 
     let mut sky = SkyMat::new(coo.clone());
 
@@ -631,11 +700,11 @@ fn main() {
     sky.compress();
     println!("Au={:?}", sky.vec_mult(&u));
     sky.print();
-    println!("sky={:?}", sky);
     sky.coo_to_sky();
+    println!("sky={:?}", sky);
 
     println!("LU facto");
-    sky.sky_factolu_debug().unwrap();
+    sky.sky_factolu().unwrap();
     sky.print_lu();
 
     let mut a = [[0. as f64; NN]; NN];
@@ -658,11 +727,11 @@ fn main() {
     }
     println!("Facto error={}", erreur);
 
-    let x0 = (1..NN+1).map(|i| i as f64).collect();
+    let x0 = (1..NN + 1).map(|i| i as f64).collect();
 
     let b = sky.vec_mult(&x0);
 
-    let x = sky.solve(b.clone());
+    let x = sky.solve_debug(b.clone());
 
     println!("x0={:?}", x0);
     println!("x={:?}", x);
