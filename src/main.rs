@@ -22,25 +22,20 @@ fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
     format!("{:>width$}", num, width = width)
 }
 
-/// Sparse matrix with skyline storage 
+/// Sparse matrix with skyline storage
 #[derive(Debug)]
 struct SkyMat {
     coo: Vec<(usize, usize, f64)>,
     nrows: usize,
     ncols: usize,
-    vkgd: Vec<f64>,
-    vkgs: Vec<f64>,
-    vkgi: Vec<f64>,
-    skld: Vec<usize>,
-    ikld: Vec<usize>,
     /// skyline
-    sky: Vec<usize>,    
+    sky: Vec<usize>,
     /// profile
-    prof: Vec<usize>,    
+    prof: Vec<usize>,
     /// rows of L
-    ltab: Vec<Vec<f64>>,   
+    ltab: Vec<Vec<f64>>,
     /// columns of U
-    utab: Vec<Vec<f64>>,   
+    utab: Vec<Vec<f64>>,
 }
 
 impl SkyMat {
@@ -59,19 +54,16 @@ impl SkyMat {
             coo: coo,
             nrows: nrows,
             ncols: ncols,
-            vkgd: vec![],
-            vkgs: vec![],
-            vkgi: vec![],
-            skld: vec![],
-            ikld: vec![],
             sky: vec![],
             prof: vec![],
-            ltab: vec![vec![];nrows],
-            utab: vec![vec![];ncols]
+            ltab: vec![vec![]; nrows],
+            utab: vec![vec![]; ncols],
         }
     }
 
-    fn print(&self) {
+    /// Full print of the coo matrix
+    #[allow(dead_code)]
+    fn print_coo(&self) {
         // first search the size of the matrix
         let imax = self.coo.iter().map(|(i, _, _)| i).max().unwrap() + 1;
         let jmax = self.coo.iter().map(|(_, j, _)| j).max().unwrap() + 1;
@@ -91,74 +83,105 @@ impl SkyMat {
         }
     }
 
-    /// full print of the LU decomposition
+    /// Full print of the LU decomposition
     fn print_lu(&self) {
         println!("L-I+U=");
         for i in 0..self.nrows {
             for j in 0..self.ncols {
-                let v = self.get(i, j);
+                let v = self.get_lu(i, j);
                 print!("{} ", fmt_f64(v, FMT));
             }
             println!();
         }
     }
 
-    fn get(&self, i: usize, j: usize) -> f64 {
+    /// Return the value at position (i,j) in L-I+U
+    fn get_lu(&self, i: usize, j: usize) -> f64 {
         assert!(i < self.nrows);
         assert!(j < self.ncols);
-        if i > j {
+        if i > j && j >= self.prof[i] {
             self.get_l(i, j)
-        } else {
+        } else if i <= j && i >= self.sky[j] {
             self.get_u(i, j)
+        } else {
+            0.
         }
     }
 
-    fn set(&mut self, i: usize, j: usize, val: f64) -> Result<(), ()> {
-        set_sky(
-            i,
-            j,
-            val,
-            &mut self.vkgd,
-            &mut self.vkgs,
-            &mut self.vkgi,
-            &self.skld,
-            &self.ikld,
-        )
+    /// Return the value at position (i,j) in L-I+U
+    /// Fail if (i,j) is not in the profile or the skyline
+    /// Used for debug
+    #[allow(dead_code)]
+    fn get_lu_try(&self, i: usize, j: usize) -> f64 {
+        assert!(i < self.nrows);
+        assert!(j < self.ncols);
+        if i > j && j >= self.prof[i] {
+            self.get_l(i, j)
+        } else if i <= j && i >= self.sky[j] {
+            self.get_u(i, j)
+        } else {
+            panic!();
+        }
     }
 
+    /// Set the value (i,j) in L-I+U
+    /// Fail if (i,j) is not in the skyline or in the profile
+    fn set_lu(&mut self, i: usize, j: usize, v: f64) {
+        if i > j {
+            self.set_l(i, j, v);
+        } else {
+            self.set_u(i, j, v);
+        }
+    }
+
+    /// Set the value (i,j) in L-I+U
+    /// Do nothing if (i,j) is not in the skyline or in the profile
+    #[allow(dead_code)]
+    fn set_lu_try(&mut self, i: usize, j: usize, v: f64) {
+        if i > j && j >= self.prof[i] {
+            self.set_l(i, j, v);
+        } else if i <= j && i >= self.sky[j] {
+            self.set_u(i, j, v);
+        } else {
+            println!("i={} j={} is not in the pattern", i, j);
+        }
+    }
+
+    /// Get the (i,j) value in L
+    /// Fail if (i,j) is not in the profile
+    /// or if i == j
     fn get_l(&self, i: usize, j: usize) -> f64 {
         // mémo:
         // self.vkgs[self.skld[j] + j - i - 1]   U(i,j)
         // self.vkgi[self.ikld[i] + i - j - 1]   L(i,j)
-        self.vkgi[self.ikld[i] + i - j - 1]
+        //self.vkgi[self.ikld[i] + i - j - 1]
+        self.ltab[i][j - self.prof[i]]
     }
 
+    /// Get the (i,j) value in U
+    /// Fail if (i,j) is not in the skyline
     fn get_u(&self, i: usize, j: usize) -> f64 {
-        if i != j {
-            self.vkgs[self.skld[j] + j - i - 1]
-        } else {
-            self.vkgd[i]
-        }
+        self.utab[j][i - self.sky[j]]
     }
 
-    fn set_l(&mut self, i: usize, j: usize, val: f64) -> Result<(), ()> {
+    /// Set the (i,j) value in L
+    /// Fail if (i,j) is not in the profile
+    /// or if i == j
+    fn set_l(&mut self, i: usize, j: usize, val: f64) {
         // mémo:
         // self.vkgs[self.skld[j] + j - i - 1]   U(i,j)
         // self.vkgi[self.ikld[i] + i - j - 1]   L(i,j)
-        self.vkgi[self.ikld[i] + i - j - 1] = val;
-        Ok(())
+        //self.vkgi[self.ikld[i] + i - j - 1] = val;
+        self.ltab[i][j - self.prof[i]] = val;
     }
 
-    fn set_u(&mut self, i: usize, j: usize, val: f64) -> Result<(), ()> {
-        if i != j {
-            self.vkgs[self.skld[j] + j - i - 1] = val;
-        } else {
-            self.vkgd[i] = val;
-        }
-        Ok(())
+    /// Set the (i,j) value in U
+    /// Fail if (i,j) is not in the skyline
+    fn set_u(&mut self, i: usize, j: usize, val: f64) {
+        self.utab[j][i - self.sky[j]] = val;
     }
 
-    /// sort coo array and combine values for the same (i,j) index
+    /// Sort the coo array and combine values for the same (i,j) indices
     fn compress(&mut self) {
         if self.coo.is_empty() {
             return;
@@ -168,7 +191,6 @@ impl SkyMat {
         // are near to each other
         self.coo
             .sort_by(|(i1, j1, _v1), (i2, j2, _v2)| (i1, j1).cmp(&(i2, j2)));
-        //println!("{:?}", vtuple);
 
         let mut newcoo: Vec<(usize, usize, f64)> = vec![];
 
@@ -202,6 +224,7 @@ impl SkyMat {
         self.coo = newcoo;
     }
 
+    /// Matrix vector product using the coo array
     fn vec_mult(&self, u: &Vec<f64>) -> Vec<f64> {
         let mut v: Vec<f64> = vec![0.; self.nrows];
         if u.len() != self.ncols {
@@ -217,89 +240,75 @@ impl SkyMat {
         v
     }
 
+    /// Convert the coo array to the skyline format internally
+    /// The coo array is compressed before the construction
     fn coo_to_sky(&mut self) {
         assert_eq!(self.nrows, self.ncols);
         let n = self.nrows;
         if n == 0 {
             return;
         }
-        let mut prof = vec![0; n];
-        let mut sky = vec![0; n];
-        // initially prof and sky count the non zero terms
+        let mut prof: Vec<usize> = (0..n).collect();
+        let mut sky: Vec<usize> = (0..n).collect();
+        self.compress();
         self.coo.iter().for_each(|(i, j, _v)| {
             if j > i {
-                sky[*j] = sky[*j].max(j - i);
+                sky[*j] = sky[*j].min(*i);
             } else {
-                prof[*i] = prof[*i].max(i - j);
+                prof[*i] = prof[*i].min(*j);
             }
         });
         self.prof = prof;
         self.sky = sky;
-        self.skld = vec![0; n + 1];
-        for i in 0..n {
-            self.skld[i + 1] = self.skld[i] + self.sky[i];
-            self.sky[i] = i - self.sky[i];
-        }
-        self.ikld = vec![0; n + 1];
-        for i in 0..n {
-            self.ikld[i + 1] = self.ikld[i] + self.prof[i];
-            self.prof[i] = i - self.prof[i];
-        }
-        // now sky and prof contain the true profile and skyline
-        // stored values in the upper and lower triangles
-        let snnz = self.skld[n];
-        let innz = self.ikld[n];
-        let mut vkgd = vec![0.; n];
-        let mut vkgs = vec![0.; snnz];
-        let mut vkgi = vec![0.; innz];
 
-        self.coo.iter().for_each(|(i, j, v)| {
-            set_sky(
-                *i, *j, *v, &mut vkgd, &mut vkgs, &mut vkgi, &self.skld, &self.ikld,
-            )
-            .unwrap();
-        });
-        self.vkgd = vkgd;
-        self.vkgs = vkgs;
-        self.vkgi = vkgi;
-
-        // new format
         // allocate space for the row of L
-        // without the diagonal terms
+        // WITHOUT the diagonal terms
         for i in 0..n {
-            self.ltab[i] = vec![0.; i-self.prof[i]];
-    }
+            self.ltab[i] = vec![0.; i - self.prof[i]];
+        }
         // allocate space for the row of U
-        // with the diagonal terms
+        // WITH the diagonal terms
         for j in 0..n {
-            self.utab[j] = vec![0.; j-self.sky[j]+1];
+            self.utab[j] = vec![0.; j - self.sky[j] + 1];
+        }
+
+        //println!("LU={:?}", self);
+
+        for k in 0..self.coo.len() {
+            let (i, j, v) = self.coo[k];
+            self.set_lu(i, j, v);
+        }
     }
 
-    }
-
+    /// Performs a LU decomposition on the full matrix
+    /// with the Doolittle algorithm
+    /// Not efficient: used only for
+    #[allow(dead_code)]
     fn factolu_full(&mut self) -> Result<(), ()> {
         self.coo_to_sky();
         let n = self.nrows;
         for k in 1..n {
             for j in 0..k {
-                let mut lkj = self.get(k, j);
+                let mut lkj = self.get_lu(k, j);
                 for p in 0..j {
-                    lkj -= self.get(k, p) * self.get(p, j);
+                    lkj -= self.get_lu(k, p) * self.get_lu(p, j);
                 }
-                lkj /= self.get(j, j);
-                self.set(k, j, lkj)?;
+                lkj /= self.get_lu(j, j);
+                self.set_lu_try(k, j, lkj);
             }
             for i in 0..k + 1 {
-                let mut uik = self.get(i, k);
+                let mut uik = self.get_lu(i, k);
                 for p in 0..i {
-                    uik -= self.get(i, p) * self.get(p, k);
+                    uik -= self.get_lu(i, p) * self.get_lu(p, k);
                 }
-                self.set(i, k, uik)?;
+                self.set_lu_try(i, k, uik);
             }
         }
         Ok(())
     }
 
+    /// Performs a LU decomposition on the sparse matrix
+    /// with the Doolittle algorithm
     fn factolu(&mut self) -> Result<(), ()> {
         self.coo_to_sky();
         let n = self.nrows;
@@ -312,20 +321,22 @@ impl SkyMat {
                     lkj -= self.get_l(k, p) * self.get_u(p, j);
                 }
                 lkj /= self.get_u(j, j); // warning if div by zero !
-                self.set_l(k, j, lkj)?;
+                self.set_l(k, j, lkj);
             }
             for i in self.sky[k]..k + 1 {
-                let mut uik = self.get(i, k);
+                let mut uik = self.get_u(i, k);
                 let pmin = self.prof[i].max(self.sky[k]);
                 for p in pmin..i {
                     uik -= self.get_l(i, p) * self.get_u(p, k);
                 }
-                self.set_u(i, k, uik)?;
+                self.set_u(i, k, uik);
             }
         }
         Ok(())
     }
 
+    /// Triangular solves
+    /// Must be called after the LU decomposition !
     fn solve(&self, mut b: Vec<f64>) -> Vec<f64> {
         // descente
         let n = self.nrows;
@@ -334,7 +345,8 @@ impl SkyMat {
                 b[i] -= self.get_l(i, p) * b[p];
             }
         }
-        b[n - 1] /= self.get(n - 1, n - 1);
+        // remontée
+        b[n - 1] /= self.get_u(n - 1, n - 1);
         for j in (0..n - 1).rev() {
             for i in self.sky[j + 1]..j + 1 {
                 //for i in 0..j {
@@ -345,177 +357,53 @@ impl SkyMat {
         b
     }
 
+    /// Triangular solves with the full structure
+    /// Only here for debug
+    #[allow(dead_code)]
     fn solve_slow(&self, mut b: Vec<f64>) -> Vec<f64> {
         // descente
         let n = self.nrows;
         for i in 0..n {
             for p in self.prof[i]..i {
-                b[i] -= self.get(i, p) * b[p];
+                b[i] -= self.get_l(i, p) * b[p];
             }
         }
-        b[n - 1] /= self.get(n - 1, n - 1);
+        b[n - 1] /= self.get_u(n - 1, n - 1);
         for i in (0..n - 1).rev() {
             for j in i + 1..n {
-                b[i] -= self.get(i, j) * b[j];
+                b[i] -= self.get_u(i, j) * b[j];
             }
-            b[i] /= self.get(i, i);
+            b[i] /= self.get_u(i, i);
         }
         b
     }
-
-    fn factolu_classic(&mut self) -> Result<(), ()> {
+    /// Perform the LU decomposition with the Gauss method
+    /// on the full matrix
+    /// Not efficient: only for debug purpose
+    #[allow(dead_code)]
+    fn factolu_gauss(&mut self) -> Result<(), ()> {
         self.coo_to_sky();
 
-        let n = self.skld.len() - 1;
+        let n = self.nrows;
         for p in 0..n - 1 {
-            let piv = self.vkgd[p];
+            let piv = self.get_lu(p, p);
             // fill the column p in L
             for i in p + 1..n {
-                let c = self.get(i, p) / piv; // c = a[i,p] /  a[p,p]
-                self.set(i, p, c)?;
-            }
-            for i in p + 1..n {
-                // use the column p of L for elimination
-                // Ui = Ui - c Up   U[i,j] = U[i,j] - c U[p,j] for j >= i
-                // diagonal term
-                for j in i..n {
-                    let mut u = self.get(i, j);
-                    let c = self.get(i, p);
-                    u -= c * self.get(p, j);
-                    self.set(i, j, u)?;
+                let c = self.get_lu(i, p) / piv;
+                for j in p + 1..n {
+                    let mut aij = self.get_lu(i, j);
+                    aij -= c * self.get_lu(p, j);
+                    self.set_lu_try(i, j, aij);
+                    self.set_lu_try(i, p, c);
                 }
-                // upper diagonal term
             }
         }
         Ok(())
     }
 }
 
-// /// Display coo matrix in full
-// fn print_sky(
-//     vkgd: &Vec<f64>,
-//     vkgs: &Vec<f64>,
-//     vkgi: &Vec<f64>,
-//     skld: &Vec<usize>,
-//     ikld: &Vec<usize>,
-// ) {
-//     // first search the size of the matrix
-//     let n = skld.len() - 1;
-//     println!("nrows={}", n);
-//     println!("ncols={}", n);
-
-//     println!("full_lu=");
-//     for i in 0..n {
-//         for j in 0..n {
-//             print!(
-//                 "{} ",
-//                 fmt_f64(get_sky(i, j, vkgd, vkgs, vkgi, skld, ikld), FMT)
-//             );
-//         }
-//         println!("");
-//     }
-//     //println!("full={:?}", full);
-// }
-
-/// Convert a coo matrix to compressed sparse row (csr) format
-/// the matrix must be first sorted and compressed !
-#[allow(dead_code)]
-fn coo_to_csr(
-    val_coo: Vec<f64>,
-    iv: Vec<usize>,
-    jv: Vec<usize>,
-) -> (Vec<f64>, Vec<usize>, Vec<usize>) {
-    // some checks
-    assert_eq!(val_coo.len(), iv.len());
-    assert_eq!(val_coo.len(), jv.len());
-    let nrows = *iv.iter().max().unwrap() + 1;
-    // first count non zero values in each row
-    let mut row_count = vec![0; nrows];
-    iv.iter().for_each(|iv| row_count[*iv] += 1);
-    println!("{:?}", row_count);
-    let mut row_start = vec![0; nrows + 1];
-    for i in 0..nrows {
-        row_start[i + 1] = row_start[i] + row_count[i];
-    }
-    let nnz = row_start[nrows];
-    println!("{:?} nnz={}", row_start, nnz);
-    (val_coo, row_start, jv)
-}
-
-fn get_sky(
-    i: usize,
-    j: usize,
-    vkgd: &Vec<f64>,
-    vkgs: &Vec<f64>,
-    vkgi: &Vec<f64>,
-    skld: &Vec<usize>,
-    ikld: &Vec<usize>,
-) -> f64 {
-    let n = vkgd.len();
-    assert!(i < n);
-    assert!(j < n);
-    if i == j {
-        //println!("(i,j)={} {}",i,j);
-        vkgd[i]
-    } else if j > i && j - i <= skld[j + 1] - skld[j] {
-        let k = skld[j] + j - i - 1;
-        vkgs[k]
-    } else if j < i && i - j <= ikld[i + 1] - ikld[i] {
-        let k = ikld[i] + i - j - 1;
-        vkgi[k]
-    } else {
-        //println!("Read out of profile {} {}",i,j);
-        0.
-    }
-}
-
-//use std::error::Error;
-
-fn set_sky(
-    i: usize,
-    j: usize,
-    val: f64,
-    vkgd: &mut Vec<f64>,
-    vkgs: &mut Vec<f64>,
-    vkgi: &mut Vec<f64>,
-    skld: &Vec<usize>,
-    ikld: &Vec<usize>,
-) -> Result<(), ()> {
-    let n = vkgd.len();
-    assert!(i < n);
-    assert!(j < n);
-
-    if i == j {
-        vkgd[i] = val;
-    } else if j > i && j - i <= skld[j + 1] - skld[j] {
-        let k = skld[j] + j - i - 1;
-        vkgs[k] = val;
-    } else if j < i && i - j <= ikld[i + 1] - ikld[i] {
-        let k = ikld[i] + i - j - 1;
-        vkgi[k] = val;
-    } else {
-        //println!("i={} j={}", i, j);
-        //println!("Out of profile access, ignored !");
-        return Err(());
-    }
-
-    Ok(())
-}
-
-#[allow(dead_code)]
-fn get_csr(val_csr: &Vec<f64>, row_start: &Vec<usize>, jv: &Vec<usize>, i: usize, j: usize) -> f64 {
-    let mut val = 0.;
-    for iv in row_start[i]..row_start[i + 1] {
-        if jv[iv] == j {
-            val = val_csr[iv];
-        }
-    }
-    val
-}
-
-// full LU tools for debug
-
-#[allow(clippy::needless_range_loop)]
+/// Inplace Gauss LU decomposition with row pivoting
+/// on a full matrix
 pub fn plu_facto(a: &mut Vec<Vec<f64>>, sigma: &mut Vec<usize>) {
     // initialize permutation to identity
     for (p, sig) in sigma.iter_mut().enumerate() {
@@ -556,6 +444,7 @@ pub fn plu_facto(a: &mut Vec<Vec<f64>>, sigma: &mut Vec<usize>) {
     }
 }
 
+/// Inplace Doolittle LU decomposition on a full matrix
 pub fn doolittle_lu(a: &mut Vec<Vec<f64>>) {
     let n = a.len();
     // pivot loop
@@ -566,19 +455,17 @@ pub fn doolittle_lu(a: &mut Vec<Vec<f64>>) {
                 a[k][j] -= a[k][p] * a[p][j];
             }
             a[k][j] /= a[j][j];
-            //println!("L({},{})={}", k, j, a[k][j]);
         }
         //update column p over the pivot
         for i in 0..k + 1 {
             for p in 0..i {
                 a[i][k] -= a[i][p] * a[p][k];
             }
-            //println!("U({},{})={}", i, k, a[i][k]);
         }
     }
 }
 
-#[allow(clippy::needless_range_loop)]
+/// Permutation algorithm used by gauss_solve
 fn gauss_permute(x: &mut Vec<f64>, sigma: &Vec<usize>) {
     let n = sigma.len();
     assert_eq!(n, x.len());
@@ -591,7 +478,8 @@ fn gauss_permute(x: &mut Vec<f64>, sigma: &Vec<usize>) {
     }
 }
 
-#[allow(clippy::needless_range_loop)]
+/// Triangular solves
+/// plu_solve must be called first !
 pub fn gauss_solve(a: &Vec<Vec<f64>>, sigma: &Vec<usize>, x: &mut Vec<f64>) {
     let n = a.len();
     assert_eq!(n, x.len());
@@ -641,21 +529,29 @@ fn main() {
 
     let mut sky = SkyMat::new(coo.clone());
 
-    let u = vec![0.; 5];
+    let n = 5;
 
-    println!("Au={:?}", sky.vec_mult(&u));
+    let u = vec![1.; 5];
+
+    let v1 = sky.vec_mult(&u);
+
+    println!("Au={:?}", v1);
 
     sky.compress();
-    println!("Au={:?}", sky.vec_mult(&u));
-    //sky.print();
+
+    let v2 = sky.vec_mult(&u);
+    println!("Au={:?}", v2);
+
+    v1.iter()
+        .zip(v2.iter())
+        .for_each(|(v1, v2)| assert!((*v1 - *v2).abs() < 1e-14));
+
     sky.coo_to_sky();
+
+    sky.factolu().unwrap();
+
     println!("sky={:?}", sky);
 
-    println!("LU facto");
-    sky.factolu().unwrap();
-    sky.print_lu();
-
-    let n = 5;
     let mut a: Vec<Vec<f64>> = vec![vec![0. as f64; n]; n];
     //let mut sigma = vec![0; n];
 
@@ -663,14 +559,19 @@ fn main() {
         a[*i][*j] += *v;
     });
 
+    // comparison with the full solver
     doolittle_lu(&mut a);
 
     let mut erreur = 0.;
-    println!("doolittle");
+
+    println!("LU sparse");
+    sky.print_lu();
+
+    println!("LU full");
     for i in 0..n {
         for j in 0..n {
             print!("{} ", fmt_f64(a[i][j], FMT));
-            erreur += (a[i][j] - sky.get(i, j)).abs();
+            erreur += (a[i][j] - sky.get_lu(i, j)).abs();
         }
         println!();
     }
@@ -684,4 +585,9 @@ fn main() {
 
     println!("x0={:?}", x0);
     println!("x={:?}", x);
+
+    let erreur: f64 = x0.iter().zip(x.iter())
+        .map(|(&x0, &x)| (x - x0).abs()).sum();
+
+    println!("erreur={}", erreur);
 }
