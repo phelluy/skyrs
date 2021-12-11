@@ -342,7 +342,7 @@ impl SkyMat {
                 lkj /= self.get_u(j, j); // warning if div by zero !
                 self.set_l(k, j, lkj);
             }
-            for i in self.sky[k]..k + 1 {
+            for i in self.sky[k].max(1)..k + 1 {
                 let mut uik = self.get_u(i, k);
                 uik -= self.scalu(i, k);
                 self.set_u(i, k, uik);
@@ -544,7 +544,7 @@ pub fn gauss_solve(a: &Vec<Vec<f64>>, sigma: &Vec<usize>, x: &mut Vec<f64>) {
 fn main() {
     let mut coo: Vec<(usize, usize, f64)> = vec![];
 
-    let n = 5;
+    let n = 10;
 
     for i in 0..n {
         coo.push((i, i, 2.));
@@ -570,9 +570,7 @@ fn main() {
 
     let mut sky = SkyMat::new(coo.clone());
 
-    let n = 5;
-
-    let u = vec![1.; 5];
+    let u = vec![1.; n];
 
     let v1 = sky.vec_mult(&u);
 

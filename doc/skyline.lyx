@@ -431,7 +431,7 @@ Triangular solve
 \end_layout
 
 \begin_layout Standard
-Once the decomposition is computed for solving
+Once the decomposition is computed, for solving
 \begin_inset Formula 
 \[
 Ax=b,
@@ -439,7 +439,7 @@ Ax=b,
 
 \end_inset
 
-we solve two triangular systems
+we solve two triangular systems, first
 \begin_inset Formula 
 \[
 Ly=b,
@@ -482,7 +482,7 @@ for
 
 \begin_inset Formula 
 \[
-y^{i}=b^{i}-\sum_{0\leq j<i }L_{j}^{i}y^{j}
+y^{i}=b^{i}-\sum_{0\leq j<i}L_{j}^{i}y^{j}
 \]
 
 \end_inset
@@ -551,7 +551,7 @@ The matrix
 \begin_inset Formula $A$
 \end_inset
 
- is said to be sparse if it is made of many zeros.
+ is said to be sparse if it contains many zeros.
  For this kind of matrix it is interesting to find data structures that
  avoid the storage of the zeros and unnecessary operations with these zeros.
  A nice case is when the pattern of the zeros is the same for 
