@@ -292,24 +292,62 @@ impl SkyMat {
                 let mut lkj = self.get_l(k, j);
                 let pmin = self.prof[k].max(self.sky[j]);
                 assert!(pmin <= j);
-                for p in pmin..j {
-                    lkj -= self.get_l(k, p) * self.get_u(p, j);
-                }
+                // for p in pmin..j {
+                //     //lkj -= self.get_l(k, p) * self.get_u(p, j);
+                //     lkj -= self.ltab[k][p-self.prof[k]]* self.utab[j][p-self.sky[j]]
+                // }
+                lkj -= self.scal(k,j);
+                
                 lkj /= self.get_u(j, j); // warning if div by zero !
                 self.set_l(k, j, lkj);
             }
-            for i in self.sky[k]..k + 1 {
+            for i in self.sky[k].max(1)..k + 1 {
                 let mut uik = self.get_u(i, k);
                 let pmin = self.prof[i].max(self.sky[k]);
+                assert!(pmin <=i);
                 for p in pmin..i {
                     uik -= self.get_l(i, p) * self.get_u(p, k);
                 }
+                // println!("i={} k={}",i,k);
+                // uik -= self.scal(i,k);
                 self.set_u(i, k, uik);
             }
         }
         Ok(())
     }
 
+    fn scal(&self,k: usize ,j: usize)  -> f64 {
+        let pmin = self.prof[k].max(self.sky[j]);
+        let (lmin, lmax) = (pmin - self.prof[k], j - self.prof[k]);
+        let (umin, umax) = (pmin - self.sky[j], j - self.sky[j]);
+        let iiter = self.ltab[k][lmin..lmax].iter();
+        println!("k={} {:?} {:?}",k,self.ltab[k],iiter);
+        let uiter = self.utab[j][umin..umax].iter();
+        println!("j={} {:?}",k,self.utab[j]);
+        let scal:f64 = iiter.zip(uiter).map(|(&l,&u)| l * u).sum(); 
+        scal
+    }
+
+    /// Performs a LU decomposition on the sparse matrix
+    /// with the Doolittle algorithm
+    fn factolu_fast(&mut self) -> Result<(), ()> {
+        self.coo_to_sky();
+        let n = self.nrows;
+        for k in 1..n {
+            for j in self.prof[k]..k {
+                let mut lkj = self.get_l(k, j);
+                lkj -= self.scal(k,j);               
+                lkj /= self.get_u(j, j); // warning if div by zero !
+                self.set_l(k, j, lkj);
+            }
+            for i in self.sky[k]..k + 1 {
+                let mut uik = self.get_u(i, k);
+                uik -= self.scal(i,k);
+                self.set_u(i, k, uik);
+            }
+        }
+        Ok(())
+    }
     /// Triangular solves
     /// Must be called after the LU decomposition !
     fn solve(&self, mut b: Vec<f64>) -> Vec<f64> {
