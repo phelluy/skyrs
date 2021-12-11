@@ -280,7 +280,55 @@ impl SkyMat {
         }
     }
 
+    /// Performs a LU decomposition on the sparse matrix
+    /// with the Doolittle algorithm
+    /// Version with a for loop for debug 
+    #[allow(dead_code)]
+    fn factolu_noscal(&mut self) -> Result<(), ()> {
+        self.coo_to_sky();
+        let n = self.nrows;
+        for k in 1..n {
+            for j in self.prof[k]..k {
+                let mut lkj = self.get_l(k, j);
+                let pmin = self.prof[k].max(self.sky[j]);
+                for p in pmin..j {
+                    lkj -= self.get_l(k, p) * self.get_u(p, j);
+                }
+                lkj /= self.get_u(j, j); // warning if div by zero !
+                self.set_l(k, j, lkj);
+            }
+            for i in self.sky[k].max(1)..k + 1 {
+                let mut uik = self.get_u(i, k);
+                let pmin = self.prof[i].max(self.sky[k]);
+                for p in pmin..i {
+                    uik -= self.get_l(i, p) * self.get_u(p, k);
+                }
+                self.set_u(i, k, uik);
+            }
+        }
+        Ok(())
+    }
 
+
+    fn scal1(&self, i: usize, j: usize) -> f64 {
+        let pmin = self.prof[i].max(self.sky[j]);
+        let (lmin, lmax) = (pmin - self.prof[i], j - self.prof[i]);
+        let (umin, umax) = (pmin - self.sky[j], j - self.sky[j]);
+        let iiter = self.ltab[i][lmin..lmax].iter();
+        let uiter = self.utab[j][umin..umax].iter();
+        let scal: f64 = iiter.zip(uiter).map(|(&l, &u)| l * u).sum();
+        scal
+    }
+
+    fn scal2(&self, i: usize, j: usize) -> f64 {
+        let pmin = self.prof[i].max(self.sky[j]);
+        let (lmin, lmax) = (pmin - self.prof[i], i - self.prof[i]);
+        let (umin, umax) = (pmin - self.sky[j], i - self.sky[j]);
+        let iiter = self.ltab[i][lmin..lmax].iter();
+        let uiter = self.utab[j][umin..umax].iter();
+        let scal: f64 = iiter.zip(uiter).map(|(&l, &u)| l * u).sum();
+        scal
+    }
 
     /// Performs a LU decomposition on the sparse matrix
     /// with the Doolittle algorithm
@@ -290,59 +338,13 @@ impl SkyMat {
         for k in 1..n {
             for j in self.prof[k]..k {
                 let mut lkj = self.get_l(k, j);
-                let pmin = self.prof[k].max(self.sky[j]);
-                assert!(pmin <= j);
-                // for p in pmin..j {
-                //     //lkj -= self.get_l(k, p) * self.get_u(p, j);
-                //     lkj -= self.ltab[k][p-self.prof[k]]* self.utab[j][p-self.sky[j]]
-                // }
-                lkj -= self.scal(k,j);
-                
-                lkj /= self.get_u(j, j); // warning if div by zero !
-                self.set_l(k, j, lkj);
-            }
-            for i in self.sky[k].max(1)..k + 1 {
-                let mut uik = self.get_u(i, k);
-                let pmin = self.prof[i].max(self.sky[k]);
-                assert!(pmin <=i);
-                for p in pmin..i {
-                    uik -= self.get_l(i, p) * self.get_u(p, k);
-                }
-                // println!("i={} k={}",i,k);
-                // uik -= self.scal(i,k);
-                self.set_u(i, k, uik);
-            }
-        }
-        Ok(())
-    }
-
-    fn scal(&self,k: usize ,j: usize)  -> f64 {
-        let pmin = self.prof[k].max(self.sky[j]);
-        let (lmin, lmax) = (pmin - self.prof[k], j - self.prof[k]);
-        let (umin, umax) = (pmin - self.sky[j], j - self.sky[j]);
-        let iiter = self.ltab[k][lmin..lmax].iter();
-        println!("k={} {:?} {:?}",k,self.ltab[k],iiter);
-        let uiter = self.utab[j][umin..umax].iter();
-        println!("j={} {:?}",k,self.utab[j]);
-        let scal:f64 = iiter.zip(uiter).map(|(&l,&u)| l * u).sum(); 
-        scal
-    }
-
-    /// Performs a LU decomposition on the sparse matrix
-    /// with the Doolittle algorithm
-    fn factolu_fast(&mut self) -> Result<(), ()> {
-        self.coo_to_sky();
-        let n = self.nrows;
-        for k in 1..n {
-            for j in self.prof[k]..k {
-                let mut lkj = self.get_l(k, j);
-                lkj -= self.scal(k,j);               
+                lkj -= self.scal1(k, j);
                 lkj /= self.get_u(j, j); // warning if div by zero !
                 self.set_l(k, j, lkj);
             }
             for i in self.sky[k]..k + 1 {
                 let mut uik = self.get_u(i, k);
-                uik -= self.scal(i,k);
+                uik -= self.scal2(i, k);
                 self.set_u(i, k, uik);
             }
         }
@@ -355,7 +357,7 @@ impl SkyMat {
         let n = self.nrows;
         for i in 0..n {
             for p in self.prof[i]..i {
-                b[i] -= self.get_l(i, p) * b[p];
+                b[i] -= self.get_l(i, p) * b[p];  // self.ltab[i][p - self.prof[i]]
             }
         }
         // remontée
@@ -396,7 +398,6 @@ impl SkyMat {
         }
         Ok(())
     }
-    
     /// Triangular solves with the full structure
     /// Only here for debug
     #[allow(dead_code)]
@@ -497,7 +498,7 @@ pub fn doolittle_lu(a: &mut Vec<Vec<f64>>) {
             a[k][j] /= a[j][j];
         }
         //update column p over the pivot
-        for i in 0..k + 1 {
+        for i in 1..k + 1 {
             for p in 0..i {
                 a[i][k] -= a[i][p] * a[p][k];
             }
@@ -553,11 +554,11 @@ fn main() {
         coo.push((i + 1, i, -1.));
     }
 
-    coo.push((0, 0, 0.));
-    coo.push((n - 1, n - 1, 0.));
+    // coo.push((0, 0, 0.));
+    // coo.push((n - 1, n - 1, 0.));
 
     coo.push((3, 0, 0.1));
-    coo.push((1, 3, 0.1));
+    coo.push((1, 4, 0.1));
 
     // coo = vec![];
 
@@ -587,6 +588,8 @@ fn main() {
         .for_each(|(v1, v2)| assert!((*v1 - *v2).abs() < 1e-14));
 
     sky.coo_to_sky();
+
+    sky.print_lu();
 
     sky.factolu().unwrap();
 
