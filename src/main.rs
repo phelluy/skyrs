@@ -310,7 +310,7 @@ impl SkyMat {
     }
 
 
-    fn scal1(&self, i: usize, j: usize) -> f64 {
+    fn scall(&self, i: usize, j: usize) -> f64 {
         let pmin = self.prof[i].max(self.sky[j]);
         let (lmin, lmax) = (pmin - self.prof[i], j - self.prof[i]);
         let (umin, umax) = (pmin - self.sky[j], j - self.sky[j]);
@@ -320,7 +320,7 @@ impl SkyMat {
         scal
     }
 
-    fn scal2(&self, i: usize, j: usize) -> f64 {
+    fn scalu(&self, i: usize, j: usize) -> f64 {
         let pmin = self.prof[i].max(self.sky[j]);
         let (lmin, lmax) = (pmin - self.prof[i], i - self.prof[i]);
         let (umin, umax) = (pmin - self.sky[j], i - self.sky[j]);
@@ -338,13 +338,13 @@ impl SkyMat {
         for k in 1..n {
             for j in self.prof[k]..k {
                 let mut lkj = self.get_l(k, j);
-                lkj -= self.scal1(k, j);
+                lkj -= self.scall(k, j);
                 lkj /= self.get_u(j, j); // warning if div by zero !
                 self.set_l(k, j, lkj);
             }
             for i in self.sky[k]..k + 1 {
                 let mut uik = self.get_u(i, k);
-                uik -= self.scal2(i, k);
+                uik -= self.scalu(i, k);
                 self.set_u(i, k, uik);
             }
         }
