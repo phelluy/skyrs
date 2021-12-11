@@ -280,32 +280,7 @@ impl SkyMat {
         }
     }
 
-    /// Performs a LU decomposition on the full matrix
-    /// with the Doolittle algorithm
-    /// Not efficient: used only for
-    #[allow(dead_code)]
-    fn factolu_full(&mut self) -> Result<(), ()> {
-        self.coo_to_sky();
-        let n = self.nrows;
-        for k in 1..n {
-            for j in 0..k {
-                let mut lkj = self.get_lu(k, j);
-                for p in 0..j {
-                    lkj -= self.get_lu(k, p) * self.get_lu(p, j);
-                }
-                lkj /= self.get_lu(j, j);
-                self.set_lu_try(k, j, lkj);
-            }
-            for i in 0..k + 1 {
-                let mut uik = self.get_lu(i, k);
-                for p in 0..i {
-                    uik -= self.get_lu(i, p) * self.get_lu(p, k);
-                }
-                self.set_lu_try(i, k, uik);
-            }
-        }
-        Ok(())
-    }
+
 
     /// Performs a LU decomposition on the sparse matrix
     /// with the Doolittle algorithm
@@ -357,6 +332,33 @@ impl SkyMat {
         b
     }
 
+    /// Performs a LU decomposition on the full matrix
+    /// with the Doolittle algorithm
+    /// Not efficient: used only for
+    #[allow(dead_code)]
+    fn factolu_full(&mut self) -> Result<(), ()> {
+        self.coo_to_sky();
+        let n = self.nrows;
+        for k in 1..n {
+            for j in 0..k {
+                let mut lkj = self.get_lu(k, j);
+                for p in 0..j {
+                    lkj -= self.get_lu(k, p) * self.get_lu(p, j);
+                }
+                lkj /= self.get_lu(j, j);
+                self.set_lu_try(k, j, lkj);
+            }
+            for i in 0..k + 1 {
+                let mut uik = self.get_lu(i, k);
+                for p in 0..i {
+                    uik -= self.get_lu(i, p) * self.get_lu(p, k);
+                }
+                self.set_lu_try(i, k, uik);
+            }
+        }
+        Ok(())
+    }
+    
     /// Triangular solves with the full structure
     /// Only here for debug
     #[allow(dead_code)]
@@ -575,8 +577,7 @@ fn main() {
         }
         println!();
     }
-    println!("Facto error={}", fmt_f64(erreur,FMT));
-
+    println!("Facto error={}", fmt_f64(erreur, FMT));
 
     let x0 = (1..n + 1).map(|i| i as f64).collect();
 
@@ -587,8 +588,11 @@ fn main() {
     println!("x0={:?}", x0);
     println!("x={:?}", x);
 
-    let erreur: f64 = x0.iter().zip(x.iter())
-        .map(|(&x0, &x)| (x - x0).abs()).sum();
+    let erreur: f64 = x0
+        .iter()
+        .zip(x.iter())
+        .map(|(&x0, &x)| (x - x0).abs())
+        .sum();
 
-    println!("erreur={}", fmt_f64(erreur,FMT));
+    println!("erreur={}", fmt_f64(erreur, FMT));
 }
