@@ -575,7 +575,8 @@ fn main() {
         }
         println!();
     }
-    println!("Facto error={}", erreur);
+    println!("Facto error={}", fmt_f64(erreur,FMT));
+
 
     let x0 = (1..n + 1).map(|i| i as f64).collect();
 
@@ -589,5 +590,5 @@ fn main() {
     let erreur: f64 = x0.iter().zip(x.iter())
         .map(|(&x0, &x)| (x - x0).abs()).sum();
 
-    println!("erreur={}", erreur);
+    println!("erreur={}", fmt_f64(erreur,FMT));
 }
