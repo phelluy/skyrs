@@ -1,9 +1,38 @@
 # skyrs
-Skyline sparse matrix linear solver
+Skyline sparse matrix linear solver.
+
+The skyline format is an old and rusty but robust way to solve sparse linear systems.
+
+See for instance:
+
+```bibtex
+@book{dhatt1981presentation,
+  title={Une pr{\'e}sentation de la m{\'e}thode des {\'e}l{\'e}ments finis},
+  author={Dhatt, Gouri and Touzot, Gilbert},
+  year={1981},
+  publisher={Presses Universit{\'e} Laval}
+}
+```
 
 # How to use
 
-A short example: 
+In this short example we first construct a skyline matrix A from its coordinate representation. We only give the non-zero entries as a list of `(i,j,v)` tuples such that
+```
+A[i][j] = v.
+```  
+We then display the matrix, compute a matrix-vector product
+```
+b = A x0,
+```
+and solve the linear system
+```
+A x = b
+```
+for checking that
+```
+x = x0
+```
+up to rounding errors.
 
  ```rust
  use skyrs::Sky;
