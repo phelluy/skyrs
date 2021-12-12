@@ -3,7 +3,7 @@ Skyline sparse matrix linear solver.
 
 The skyline format is an old and rusty :-) way to solve sparse linear systems.
 
-See for instance:
+See for instance (among many other authors)
 
 ```bibtex
 @book{dhatt1981presentation,
@@ -13,6 +13,12 @@ See for instance:
   publisher={Presses Universit{\'e} Laval}
 }
 ```
+
+Do not forget to add the line
+```
+skyrs = {git = "https://github.com/phelluy/skyrs"}
+```
+in the `[dependencies]` section of your `Cargo.toml`.
 
 ## Example
 
