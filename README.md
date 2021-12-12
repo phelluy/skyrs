@@ -16,7 +16,7 @@ See for instance (among many other authors)
 
 A short description of the method is given at:
 
-
+[https://github.com/phelluy/skyrs/blob/main/doc/skyline.pdf](https://github.com/phelluy/skyrs/blob/main/doc/skyline.pdf)
 
 Do not forget to add the line
 ```
