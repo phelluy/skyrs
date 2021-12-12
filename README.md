@@ -86,5 +86,7 @@ However, this is a work in progress.
 My todo list:
 
 -change the implementation for handling other floating point types than f64 (f32 or complex types)
+
 -implement the Cuthill-McKee algorithm for a better control of the fill-in
+
 -implement some utilities: refinement iterations for improved accuracy, add, multiply and conversion tools. 
