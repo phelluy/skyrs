@@ -14,6 +14,10 @@ See for instance (among many other authors)
 }
 ```
 
+A short description of the method is given at:
+
+
+
 Do not forget to add the line
 ```
 skyrs = {git = "https://github.com/phelluy/skyrs"}

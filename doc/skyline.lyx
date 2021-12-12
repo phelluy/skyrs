@@ -726,15 +726,12 @@ We will store the lines of
 \begin_inset Formula $L$
 \end_inset
 
- (without the diagonal terms) in the array vkgi, the columns of 
+ (without the diagonal terms) in the array ltab, the columns of 
 \begin_inset Formula $U$
 \end_inset
 
- (without the diagonal terms) in vkgs and the diagonal of 
-\begin_inset Formula $U$
-\end_inset
-
- in vkgd.
+ (with the diagonal terms) in utab.
+ ltab and utab are two vectors of vectors of 64 bits double precision numbers.
  Because we cannot know a priori the number of non-zero terms in the lines
  of 
 \begin_inset Formula $L$
@@ -814,122 +811,16 @@ if
 
 \end_deeper
 \begin_layout Standard
-The two following arrays kgi and kgs will point to the beginning of the
- lines and the columns in vkgi and vkgs.
- The following algorithm first count the non-zero terms of each line or
- columns
+We can now construct ltab[][] and utab[][] with the following algorithm
 \end_layout
 
 \begin_layout Itemize
 Initialization: 
-\begin_inset Formula $\text{kgi}[0\ldots n+1]=0$
+\begin_inset Formula $\text{ltab}[i]=[0;i-\text{prof}[i]]$
 \end_inset
 
 , 
-\begin_inset Formula $\text{kgs}[0\ldots n+1]=0$
-\end_inset
-
- (Note the size 
-\begin_inset Formula $n+1$
-\end_inset
-
- instead of 
-\begin_inset Formula $n$
-\end_inset
-
-)
-\end_layout
-
-\begin_layout Itemize
-for 
-\begin_inset Formula $k$
-\end_inset
-
- in 
-\begin_inset Formula $0\ldots n$
-\end_inset
-
-
-\end_layout
-
-\begin_deeper
-\begin_layout Itemize
-\begin_inset Formula $\text{kgi}[k]=k-\text{prof}[k]$
-\end_inset
-
-, 
-\begin_inset Formula $\text{kgs}[k]=k-\text{sky}[k]$
-\end_inset
-
- (count non-zero terms)
-\end_layout
-
-\end_deeper
-\begin_layout Itemize
-for 
-\begin_inset Formula $k$
-\end_inset
-
- in 
-\begin_inset Formula $0\ldots n$
-\end_inset
-
-
-\end_layout
-
-\begin_deeper
-\begin_layout Itemize
-\begin_inset Formula $\text{kgi}[k+1]=\text{kgi}[k+1]+\text{kgi}[k]$
-\end_inset
-
-, 
-\begin_inset Formula $\text{kgs}[k+1]=\text{kgs}[k+1]+\text{kgs}[k]$
-\end_inset
-
- (cumulative sum)
-\end_layout
-
-\end_deeper
-\begin_layout Standard
-At the end of this algorithm 
-\begin_inset Formula $ni=\text{kgi}[n]$
-\end_inset
-
- contains the number of non-zero terms in 
-\begin_inset Formula $L$
-\end_inset
-
- and 
-\begin_inset Formula $ns=\text{kgs}[n]$
-\end_inset
-
- the number of non-zero terms in 
-\begin_inset Formula $U$
-\end_inset
-
-.
- In other words
-\begin_inset Formula 
-\[
-nnz=\text{kgi}[n]+\text{kgs}[n]+n=ni+ns+n.
-\]
-
-\end_inset
-
-We can now construct vkgi, vkgs and vkgd with the following algorithm
-\end_layout
-
-\begin_layout Itemize
-Initialization: 
-\begin_inset Formula $\text{vkgi}[0\dots ni]=0$
-\end_inset
-
-, 
-\begin_inset Formula $\text{vkgs}[0\dots ns]=0$
-\end_inset
-
-, 
-\begin_inset Formula $\text{vkgd}[0\dots n]=0$
+\begin_inset Formula $\text{utab}[j]=[0;j-\text{sky}[j]+1]$
 \end_inset
 
 
@@ -957,23 +848,11 @@ for
 
 \begin_layout Itemize
 if 
-\begin_inset Formula $i=j$
-\end_inset
-
- then 
-\begin_inset Formula $\text{vkgd}[i]\text{+=}v$
-\end_inset
-
-
-\end_layout
-
-\begin_layout Itemize
-if 
 \begin_inset Formula $i>j$
 \end_inset
 
  then 
-\begin_inset Formula $\text{vkgi}[\text{kgi}[i]+i-j-1]\text{+=}v$
+\begin_inset Formula $\text{ltab}[i][j-\text{prof}[i]]\text{+=}v$
 \end_inset
 
 
@@ -981,11 +860,11 @@ if
 
 \begin_layout Itemize
 if 
-\begin_inset Formula $i<j$
+\begin_inset Formula $i\leq j$
 \end_inset
 
  then 
-\begin_inset Formula $\text{vkgs}[\text{kgs}[j]+j-i-1]\text{+=}v$
+\begin_inset Formula $\text{utab}[j][i-\text{sky}[j]]\text{+=}v$
 \end_inset
 
 
