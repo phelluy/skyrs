@@ -1,7 +1,7 @@
 # skyrs
 Skyline sparse matrix linear solver.
 
-The skyline format is an old and rusty but robust way to solve sparse linear systems.
+The skyline format is an old and rusty :-) way to solve sparse linear systems.
 
 See for instance:
 
