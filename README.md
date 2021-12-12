@@ -14,25 +14,7 @@ See for instance:
 }
 ```
 
-# How to use
-
-In this short example we first construct a skyline matrix A from its coordinate representation. We only give the non-zero entries as a list of `(i,j,v)` tuples such that
-```
-A[i][j] = v.
-```  
-We then display the matrix, compute a matrix-vector product
-```
-b = A x0,
-```
-and solve the linear system
-```
-A x = b
-```
-for checking that
-```
-x = x0
-```
-up to rounding errors.
+## Example
 
  ```rust
  use skyrs::Sky;
@@ -68,3 +50,21 @@ up to rounding errors.
  
  assert!(erreur < 1e-13);
  ```
+
+Explanations: In this short example we first construct a skyline matrix A from its coordinate representation. We only give the non-zero entries as a list of `(i,j,v)` tuples such that
+```
+A[i][j] = v.
+```  
+We then display the matrix, compute a matrix-vector product
+```
+b = A x0,
+```
+and solve the linear system
+```
+A x = b
+```
+for checking that
+```
+x = x0
+```
+up to rounding errors.
