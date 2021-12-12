@@ -1,6 +1,7 @@
 /// Sparse matrix with skyline storage
 /// # Examples
 /// ```
+/// use skyrs::Sky;
 /// let coo = vec![
 /// (0, 0, 2.),
 /// (1, 1, 2.),
@@ -34,7 +35,7 @@
 /// assert!(erreur < 1e-13);
 /// ```
 #[derive(Debug, Clone)]
-struct Sky {
+pub struct Sky {
     coo: Vec<(usize, usize, f64)>,
     nrows: usize,
     ncols: usize,
@@ -82,7 +83,7 @@ fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
 
 
 impl Sky {
-    fn new(coo: Vec<(usize, usize, f64)>) -> Sky {
+    pub fn new(coo: Vec<(usize, usize, f64)>) -> Sky {
         let imax = coo.iter().map(|(i, _, _)| i).max();
         let nrows = match imax {
             Some(i) => i + 1,
@@ -106,7 +107,7 @@ impl Sky {
 
     /// Full print of the coo matrix
     #[allow(dead_code)]
-    fn print_coo(&self) {
+    pub fn print_coo(&self) {
         // first search the size of the matrix
         if self.coo.len() == 0 {
             return;
@@ -131,7 +132,7 @@ impl Sky {
 
     /// Full print of the LU decomposition
     #[allow(dead_code)]
-    fn print_lu(&self) {
+    pub fn print_lu(&self) {
         println!("L-I+U=");
         for i in 0..self.nrows {
             for j in 0..self.ncols {
@@ -268,7 +269,7 @@ impl Sky {
     }
 
     /// Matrix vector product using the coo array
-    fn vec_mult(&self, u: &Vec<f64>) -> Vec<f64> {
+    pub fn vec_mult(&self, u: &Vec<f64>) -> Vec<f64> {
         let mut v: Vec<f64> = vec![0.; self.nrows];
         if u.len() != self.ncols {
             panic!(
@@ -383,7 +384,7 @@ impl Sky {
 
     /// Performs a LU decomposition on the sparse matrix
     /// with the Doolittle algorithm
-    fn factolu(&mut self) -> Result<(), String> {
+    pub fn factolu(&mut self) -> Result<(), String> {
         self.coo_to_sky();
         let n = self.nrows;
         for k in 1..n {
@@ -407,7 +408,7 @@ impl Sky {
     }
     /// Triangular solves
     /// Must be called after the LU decomposition !
-    fn solve(&mut self, mut b: Vec<f64>) -> Result<Vec<f64>, String> {
+    pub fn solve(&mut self, mut b: Vec<f64>) -> Result<Vec<f64>, String> {
         let m = self.prof.len();
         if m == 0 {
             self.coo_to_sky();
