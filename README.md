@@ -1,5 +1,5 @@
 # skyrs
-Skyline sparse matrix linear solver.
+Skyline sparse matrix linear solver in Rust.
 
 The skyline format is an old and rusty :-) way to solve sparse linear systems.
 
@@ -74,3 +74,13 @@ for checking that
 x = x0
 ```
 up to rounding errors.
+
+## Comments
+
+The library is working fine and can be used without too much worry.
+However, this is a work in progress.
+My todo list:
+
+-change the implementation for handling other floating point types than f64 (f32 or complex types)
+-implement the Cuthill-McKee algorithm for a better control of the fill-in
+-implement some utilities: refinement iterations for improved accuracy, add, multiply and conversion tools. 
