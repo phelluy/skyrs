@@ -11,27 +11,27 @@
 /// (2, 1, -1.),
 /// (1, 2, -1.),
 /// ];
-/// 
+///
 /// let mut sky = Sky::new(coo);
-/// 
+///
 /// println!("Matrix full form:");
 /// sky.print_coo();
-/// 
+///
 /// let x0 = vec![1., 2., 3.];
 /// let b = sky.vec_mult(&x0);
 /// let x = sky.solve(b).unwrap();
-/// 
+///
 /// println!("x0={:?}",x0);
 /// println!("x={:?}",x);
-/// 
+///
 /// let erreur: f64 = x0
 /// .iter()
 /// .zip(x.iter())
 /// .map(|(&x0, &x)| (x - x0).abs())
 /// .sum();
-/// 
+///
 /// println!("error={:e}", erreur);
-/// 
+///
 /// assert!(erreur < 1e-13);
 /// ```
 #[derive(Debug, Clone)]
@@ -48,7 +48,6 @@ pub struct Sky {
     /// columns of U
     utab: Vec<Vec<f64>>,
 }
-
 
 const WIDTH: usize = 12;
 const PREC: usize = 5;
@@ -78,9 +77,6 @@ fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
         format!("{:>width$}", "Inf or NaN", width = width)
     }
 }
-
-
-
 
 impl Sky {
     pub fn new(coo: Vec<(usize, usize, f64)>) -> Sky {
@@ -365,6 +361,14 @@ impl Sky {
         let uiter = self.utab[j][umin..umax].iter();
         // todo: a good candidate for BLAS call
         let scal: f64 = iiter.zip(uiter).map(|(&l, &u)| l * u).sum();
+        // let pl = &(self.ltab[i][lmin]);
+        // let pu = &(self.utab[i][umin]);
+        // let size = (lmax - lmin) as i32;
+        // let scal = if size > 0 {
+        //     unsafe { sysblas::cblas_ddot(size, pl, 1, pu, 1) }
+        // } else {
+        //     0.
+        // };
         scal
     }
 
