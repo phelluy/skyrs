@@ -1,5 +1,10 @@
-/// Solve the Laplace equation on a square with the 
-/// finite difference method
+/// Solves the Laplace equation on a square with the 
+/// finite difference method.
+/// This example requires a working installation of Python3
+/// and Matplotlib: the PATH environment variable has to be 
+/// correctly set.
+/// If Matplotlib is not available, the example will run but
+/// the results will not show up.
 fn main() {
     // grid definition
     let lx = 1.;
