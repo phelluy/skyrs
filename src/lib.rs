@@ -362,10 +362,10 @@ impl Sky {
         // slow method
         //let scal: f64 = iiter.zip(uiter).map(|(&l, &u)| l * u).sum();
         // method with blas/lapack
+        let size = (lmax - lmin) as i32;
         let pl = &(self.ltab[i][lmin]);
         let pu = &(self.utab[j][umin]);
-        let size = (lmax - lmin) as i32;
-        let scal = if size > 0 {
+    let scal = if size > 0 {
             unsafe { sysblas::cblas_ddot(size, pl, 1, pu, 1) }
         } else {
             0.
@@ -384,14 +384,14 @@ impl Sky {
         let uiter = self.utab[j][umin..umax].iter();
         let scal: f64 = iiter.zip(uiter).map(|(&l, &u)| l * u).sum();
         // method with blas/lapack
-        // let pl = &(self.ltab[i][lmin]);
-        // let pu = &(self.utab[j][umin]);
-        // let size = (umax - umin) as i32;
-        // let scal = if size > 0 {
-        //     unsafe { sysblas::cblas_ddot(size, pl, 1, pu, 1) }
-        // } else {
-        //     0.
-        // };
+        let size = (lmax - lmin) as i32;
+        let scal = if size > 0 {
+            let pl = &(self.ltab[i][lmin]);
+            let pu = &(self.utab[j][umin]);
+            unsafe { sysblas::cblas_ddot(size, pu, 1, pl, 1) }
+        } else {
+            0.
+        };
         scal
     }
 
