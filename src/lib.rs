@@ -359,16 +359,17 @@ impl Sky {
         let (umin, umax) = (pmin - self.sky[j], j - self.sky[j]);
         let iiter = self.ltab[i][lmin..lmax].iter();
         let uiter = self.utab[j][umin..umax].iter();
-        // todo: a good candidate for BLAS call
-        let scal: f64 = iiter.zip(uiter).map(|(&l, &u)| l * u).sum();
-        // let pl = &(self.ltab[i][lmin]);
-        // let pu = &(self.utab[i][umin]);
-        // let size = (lmax - lmin) as i32;
-        // let scal = if size > 0 {
-        //     unsafe { sysblas::cblas_ddot(size, pl, 1, pu, 1) }
-        // } else {
-        //     0.
-        // };
+        // slow method
+        //let scal: f64 = iiter.zip(uiter).map(|(&l, &u)| l * u).sum();
+        // method with blas/lapack
+        let pl = &(self.ltab[i][lmin]);
+        let pu = &(self.utab[j][umin]);
+        let size = (lmax - lmin) as i32;
+        let scal = if size > 0 {
+            unsafe { sysblas::cblas_ddot(size, pl, 1, pu, 1) }
+        } else {
+            0.
+        };
         scal
     }
 
@@ -381,8 +382,16 @@ impl Sky {
         let (umin, umax) = (pmin - self.sky[j], i - self.sky[j]);
         let iiter = self.ltab[i][lmin..lmax].iter();
         let uiter = self.utab[j][umin..umax].iter();
-        // todo: a good candidate for BLAS call
         let scal: f64 = iiter.zip(uiter).map(|(&l, &u)| l * u).sum();
+        // method with blas/lapack
+        // let pl = &(self.ltab[i][lmin]);
+        // let pu = &(self.utab[j][umin]);
+        // let size = (umax - umin) as i32;
+        // let scal = if size > 0 {
+        //     unsafe { sysblas::cblas_ddot(size, pl, 1, pu, 1) }
+        // } else {
+        //     0.
+        // };
         scal
     }
 
