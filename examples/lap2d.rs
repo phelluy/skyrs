@@ -1,5 +1,7 @@
+/// Solve the Laplace equation on a square with the 
+/// finite difference method
 fn main() {
-    // plot2d example
+    // grid definition
     let lx = 1.;
     let ly = 1.;
 
@@ -9,6 +11,7 @@ fn main() {
     let dx = lx / nx as f64;
     let dy = ly / ny as f64;
 
+    println!("Assembling...");
     let mut vecval = vec![];
 
     let n = (nx + 1) * (ny + 1);
@@ -40,19 +43,19 @@ fn main() {
         }
     }
 
+    // linear system resolution
+    println!("Solving...");
     let mut m = skyrs::Sky::new(vecval);
-
-    //displaymat(n, &m);
-
     let zp = m.solve(vec![1.; n]).unwrap();
-    //println!("{:?}", soln);
-    // => vec![5.0, 3.0, -2.0]
 
-    // plot2d example
 
+    // plot
     let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
     let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
 
+    println!("OK");
+
+    println!("Trying to plot...");
     plotpy(xp, yp, zp);
 }
 
@@ -89,5 +92,5 @@ fn plotpy(xp: Vec<f64>, yp: Vec<f64>, zp: Vec<f64>) {
     Command::new("python3")
         .arg("examples/plot.py")
         .status()
-        .expect("plot failed !");
+        .expect("Plot failed: you need Python3 and Matplotlib in your PATH.");
 }
