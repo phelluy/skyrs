@@ -89,4 +89,6 @@ My todo list:
 
 -implement the Cuthill-McKee algorithm for a better control of the fill-in
 
+-optimisation: paralellism.
+
 -implement some utilities: refinement iterations for improved accuracy, add, multiply and conversion tools. 
