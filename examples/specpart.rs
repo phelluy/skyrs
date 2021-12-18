@@ -1,20 +1,25 @@
-/// Solves the Laplace equation on a square with the 
+/// Solves the Laplace equation on a square with the
 /// finite difference method.
 /// This example requires a working installation of Python3
-/// and Matplotlib: the PATH environment variable has to be 
+/// and Matplotlib: the PATH environment variable has to be
 /// correctly set.
 /// If Matplotlib is not available, the example will run but
 /// the results will not show up.
 fn main() {
     // grid definition
-    let lx = 1.;
-    let ly = 1.;
+    let nx = 20;
+    let ny = 40;
 
-    let nx = 300;
-    let ny = 300;
+    // let lx = 1.;
+    // let ly = 1.;
+    let lx = nx as f64;
+    let ly = ny as f64;
 
     let dx = lx / nx as f64;
     let dy = ly / ny as f64;
+
+    let dex = 1.;
+    let dy = 1.;
 
     println!("Assembling...");
     let mut vecval = vec![];
@@ -23,36 +28,44 @@ fn main() {
     for k in 0..n {
         let i = k % (nx + 1);
         let j = k / (nx + 1);
-        if i == 0 || i == nx || j == 0 || j == ny {
-            vecval.push((k, k, 1e20));
-        } else {
-            vecval.push((k, k, 4. / dx / dy));
-        }
+        vecval.push((k, k, 4.));
     }
 
     for i in 0..nx {
         for j in 0..ny + 1 {
             let k1 = j * (nx + 1) + i;
             let k2 = j * (nx + 1) + i + 1;
-            vecval.push((k1, k2, -1. / dx / dx));
-            vecval.push((k2, k1, -1. / dx / dx));
+            vecval.push((k1, k2, -1.));
+            vecval.push((k2, k1, -1.));
         }
     }
 
     for j in 0..ny {
         for i in 0..nx + 1 {
             let k1 = j * (nx + 1) + i;
-            let k2 = (j+1) * (nx + 1) + i;
-            vecval.push((k1, k2, -1. / dx / dx));
-            vecval.push((k2, k1, -1. / dx / dx));
+            let k2 = (j + 1) * (nx + 1) + i;
+            vecval.push((k1, k2, -1.));
+            vecval.push((k2, k1, -1.));
         }
     }
 
-    // linear system resolution
+    // finding the largest eigenvalue/eigenvector
     println!("Solving...");
-    let mut m = skyrs::Sky::new(vecval);
-    let zp = m.solve(vec![1.; n]).unwrap();
+    let m = skyrs::Sky::new(vecval);
 
+    let mut u: Vec<f64> = (0..n).map(|i| i as f64).collect();
+
+    for iter in 0..10 {
+        let mut v = m.vec_mult(&u);
+        let moyv = v.iter().sum() / n as f64;
+        v.iter_mut().for_each(|u| *u -= moyv);
+        let normv: f64 = v.iter().map(|u| u * u).sum::<f64>().sqrt();
+        println!("normu={}", normv);
+        v.iter_mut().for_each(|u| (*u /= normv);
+        u = v;
+        }
+
+    //let  = m.solve(vec![1.; n]).unwrap();
 
     // plot
     let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
@@ -61,7 +74,7 @@ fn main() {
     println!("OK");
 
     println!("Trying to plot...");
-    plotpy(xp, yp, zp);
+    plotpy(xp, yp, u);
 }
 
 #[allow(dead_code)]
@@ -93,9 +106,9 @@ fn plotpy(xp: Vec<f64>, yp: Vec<f64>, zp: Vec<f64>) {
         });
     } // ensures that the file is closed
 
-    // use std::process::Command;
-    // Command::new("python3")
-    //     .arg("examples/plot.py")
-    //     .status()
-    //     .expect("Plot failed: you need Python3 and Matplotlib in your PATH.");
+    use std::process::Command;
+    Command::new("python3")
+        .arg("examples/plot.py")
+        .status()
+        .expect("Plot failed: you need Python3 and Matplotlib in your PATH.");
 }

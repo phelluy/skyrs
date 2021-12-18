@@ -91,9 +91,9 @@ impl Sky {
             None => 0,
         };
         Sky {
-            coo: coo,
-            nrows: nrows,
-            ncols: ncols,
+            coo,
+            nrows,
+            ncols,
             sky: vec![],
             prof: vec![],
             ltab: vec![vec![]; nrows],
@@ -122,7 +122,7 @@ impl Sky {
                 let v = full[i * jmax + j];
                 print!("{} ", fmt_f64(v, FMT));
             }
-            println!("");
+            println!();
         }
     }
 
