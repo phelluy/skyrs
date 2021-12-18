@@ -93,9 +93,9 @@ fn plotpy(xp: Vec<f64>, yp: Vec<f64>, zp: Vec<f64>) {
         });
     } // ensures that the file is closed
 
-    // use std::process::Command;
-    // Command::new("python3")
-    //     .arg("examples/plot.py")
-    //     .status()
-    //     .expect("Plot failed: you need Python3 and Matplotlib in your PATH.");
+    use std::process::Command;
+    Command::new("python3")
+        .arg("examples/plot.py")
+        .status()
+        .expect("Plot failed: you need Python3 and Matplotlib in your PATH.");
 }

@@ -30,7 +30,8 @@ z = np.array([float(z[i]) for i in range(nz)]).reshape((ny+1,nx+1))
 
 fig, ax = subplots()
 ax.axis('equal')
-cs = ax.contourf(x,y,z,100)
+cs = ax.pcolormesh(x,y,z,cmap = 'jet')
+#cs = ax.countourf(x,y,z,100,cmap = 'jet')
 cbar = fig.colorbar(cs)
 
 print("press \'q\' to quit...");
