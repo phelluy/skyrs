@@ -1,10 +1,4 @@
-/// Solves the Laplace equation on a square with the
-/// finite difference method.
-/// This example requires a working installation of Python3
-/// and Matplotlib: the PATH environment variable has to be
-/// correctly set.
-/// If Matplotlib is not available, the example will run but
-/// the results will not show up.
+/// Some experiments with graph partitioning
 fn main() {
     // grid definition
     let nx = 30;
@@ -13,13 +7,11 @@ fn main() {
     println!("Assembling...");
     let mut vecval = vec![];
 
-    let maxx = 8.;
-
     let n = (nx + 1) * (ny + 1);
     for k in 0..n {
         // let i = k % (nx + 1);
         // let j = k / (nx + 1);
-        vecval.push((k, k, maxx - 4.));
+        vecval.push((k, k, 4.));
     }
 
     for i in 0..nx {
@@ -69,7 +61,7 @@ fn main() {
         u = v;
     }
 
-    println!("lambda={}", maxx - lambda);
+    println!("lambda={}", lambda);
     //let  = m.solve(vec![1.; n]).unwrap();
 
     // plot
@@ -88,26 +80,16 @@ fn main() {
 
     use petgraph::graphmap::UnGraphMap;
 
-    // Create a new undirected GraphMap.
-    // Use a type hint to have `()` be the edge weight type.
-    // let graph = UnGraphMap::<_, usize>::from_edges(&[
-    //     (0, 1, 0),
-    //     (0, 2, 1),
-    //     (0, 3, 2),
-    //     (1, 2, 3),
-    //     (1, 3, 4),
-    //     (2, 3, 5),
-    // ]);
     let graph = UnGraphMap::<_, f64>::from_edges(vecval);
 
     use petgraph::visit::Bfs;
 
-    let mut bfs = Bfs::new(&graph,0);
+    let mut bfs = Bfs::new(&graph,20);
 
     let mut v:Vec<f64> = vec![0.;n];
 
     let mut count:usize = 0;
-    v[0] = 0 as f64;
+    v[0] = 20 as f64;
     count += 1;
     while let Some(visited) = bfs.next(&graph) {
         print!(" {}", visited);
