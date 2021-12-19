@@ -539,7 +539,7 @@ x^{i}=\frac{1}{U_{i}^{i}}\left(y^{i}-U_{i+1\ldots n}^{i}x^{i+1\ldots n}\right)
 \end_layout
 
 \begin_layout Section
-Implémentation for sparse matrices
+Sequential implémentation for sparse matrices
 \end_layout
 
 \begin_layout Subsection
@@ -935,6 +935,26 @@ U_{k}^{i}\leftarrow U_{k}^{i}-\sum_{p}L_{p}^{i}\cdot U_{k}^{p},\quad p\in\text{m
 \end_layout
 
 \end_deeper
+\begin_layout Standard
+Additional optimization: the scalar products of rows of 
+\begin_inset Formula $L$
+\end_inset
+
+ with columns of 
+\begin_inset Formula $U$
+\end_inset
+
+ are optimized by unsafe calls to the BLAS subroutine 
+\begin_inset Quotes eld
+\end_inset
+
+ddot
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
 \begin_layout Subsection
 Optimisation of the triangular solvers
 \end_layout
@@ -1139,7 +1159,7 @@ x^{i}\leftarrow x^{i}-U_{j+1}^{i}x^{j+1}
 
 \end_deeper
 \begin_layout Standard
-Final trick: if the vector 
+Usual trick: if the vector 
 \begin_inset Formula $b$
 \end_inset
 
@@ -1157,6 +1177,14 @@ Final trick: if the vector
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Section
+Parallelization with the bisection method
+\end_layout
+
+\begin_layout Standard
+
 \end_layout
 
 \end_body

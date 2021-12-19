@@ -113,11 +113,11 @@ fn main() {
     use std::io::BufWriter;
     use std::io::Write;
     {
-        let mut meshfile = File::create("graph.dot").unwrap();
+        let meshfile = File::create("graph.dot").unwrap();
         let mut meshfile = BufWriter::new(meshfile); // create a buffer for faster writes...
                                                      //println!("{}", Dot::new(&graph));
         let output = format!("{}", Dot::new(&graph));
-        writeln!(meshfile, "{}", output);
+        writeln!(meshfile, "{}", output).unwrap();
     }
 }
 

@@ -8,10 +8,10 @@
 fn main() {
     // grid definition
     let lx = 1.;
-    let ly = 1.;
+    let ly = 2.;
 
-    let nx = 300;
-    let ny = 300;
+    let nx = 10;
+    let ny = 20;
 
     let dx = lx / nx as f64;
     let dy = ly / ny as f64;
@@ -34,8 +34,8 @@ fn main() {
         for j in 0..ny + 1 {
             let k1 = j * (nx + 1) + i;
             let k2 = j * (nx + 1) + i + 1;
-            vecval.push((k1, k2, -1. / dx / dx));
-            vecval.push((k2, k1, -1. / dx / dx));
+            vecval.push((k1, k2, -1. / dx / dy));
+            vecval.push((k2, k1, -1. / dx / dy));
         }
     }
 
@@ -43,8 +43,8 @@ fn main() {
         for i in 0..nx + 1 {
             let k1 = j * (nx + 1) + i;
             let k2 = (j+1) * (nx + 1) + i;
-            vecval.push((k1, k2, -1. / dx / dx));
-            vecval.push((k2, k1, -1. / dx / dx));
+            vecval.push((k1, k2, -1. / dy / dx));
+            vecval.push((k2, k1, -1. / dy / dx));
         }
     }
 
@@ -52,6 +52,8 @@ fn main() {
     println!("Solving...");
     let mut m = skyrs::Sky::new(vecval);
     let zp = m.solve(vec![1.; n]).unwrap();
+
+    m.plot();
 
 
     // plot

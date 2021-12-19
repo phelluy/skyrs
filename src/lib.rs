@@ -126,6 +126,22 @@ impl Sky {
         }
     }
 
+    // plot the non zero pattern of the matrix
+    pub fn plot(&self) {
+        let n = self.ncols;
+        assert_eq!(n,self.nrows);
+        let nmax = n * n;
+        
+        let xp: Vec<f64> = (0..n).map(|i| i as f64).collect();
+        let yp: Vec<f64> = (0..n).map(|i| (n-i) as f64).collect();
+        let zp = (0..nmax).map(|k| {
+            let i = k % n;
+            let j = k/n;
+            self.get_struct(i,j) 
+        }).collect();
+        plotpy(xp, yp, zp);
+    }
+
     /// Full print of the LU decomposition
     #[allow(dead_code)]
     pub fn print_lu(&self) {
@@ -147,6 +163,20 @@ impl Sky {
             self.get_l(i, j)
         } else if i <= j && i >= self.sky[j] {
             self.get_u(i, j)
+        } else {
+            0.
+        }
+    }
+
+    /// Return one if (i,j) is in the profile or the skyline
+    /// and zero otherwise
+    fn get_struct(&self, i: usize, j: usize) -> f64 {
+        assert!(i < self.nrows);
+        assert!(j < self.ncols);
+        if i > j && j >= self.prof[i] {
+            1.
+        } else if i <= j && i >= self.sky[j] {
+            1.
         } else {
             0.
         }
@@ -583,6 +613,35 @@ pub fn doolittle_lu(a: &mut Vec<Vec<f64>>) {
         }
     }
 }
+
+/// Plot a 2D data set using matplotlib
+fn plotpy(xp: Vec<f64>, yp: Vec<f64>, zp: Vec<f64>) {
+    use std::fs::File;
+    use std::io::BufWriter;
+    use std::io::Write;
+    {
+        let meshfile = File::create("plotpy.dat").unwrap();
+        let mut meshfile = BufWriter::new(meshfile); // create a buffer for faster writes...
+        xp.iter().for_each(|x| {
+            writeln!(meshfile, "{}", x).unwrap();
+        });
+        writeln!(meshfile, "").unwrap();
+        yp.iter().for_each(|y| {
+            writeln!(meshfile, "{}", y).unwrap();
+        });
+        writeln!(meshfile, "").unwrap();
+        zp.iter().for_each(|z| {
+            writeln!(meshfile, "{}", z).unwrap();
+        });
+    } // ensures that the file is closed
+
+    use std::process::Command;
+    Command::new("python3")
+        .arg("examples/plot.py")
+        .status()
+        .expect("Plot failed: you need Python3 and Matplotlib in your PATH.");
+}
+
 
 /// Permutation algorithm used by gauss_solve
 fn gauss_permute(x: &mut Vec<f64>, sigma: &Vec<usize>) {
