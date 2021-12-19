@@ -51,6 +51,7 @@ pub struct Sky {
     utab: Vec<Vec<f64>>,
     /// permutation
     sigma: Vec<usize>,
+    inv_sigma: Vec<usize>,
 }
 
 const WIDTH: usize = 12;
@@ -94,7 +95,8 @@ impl Sky {
             Some(j) => j + 1,
             None => 0,
         };
-        let sigma:Vec<usize> = (0..nrows).collect(); 
+        let sigma: Vec<usize> = (0..nrows).collect();
+        let inv_sigma = sigma.clone();
         Sky {
             coo,
             rowstart: vec![],
@@ -105,29 +107,50 @@ impl Sky {
             ltab: vec![vec![]; nrows],
             utab: vec![vec![]; ncols],
             sigma,
+            inv_sigma,
         }
     }
 
-    pub fn set_permut(&mut self, permut: Vec<usize>){
+    pub fn bisection_bfs(&mut self) {
+        let n = self.nrows;
+        assert_eq!(n, self.ncols);
+        self.compress();
+        let mut permut: Vec<usize> = vec![];
+        let mut visited: Vec<bool> = vec![false; n];
+        let start = 0;
+        visited[start] = true;
+        permut.push(start);
+        for loc in 0..n {
+            for i in self.rowstart[permut[loc]]..self.rowstart[permut[loc] + 1] {
+                let (_, j, _) = self.coo[i];
+                if !visited[j] {
+                    visited[j] = true;
+                    permut.push(j);
+                }
+            }
+        }
+        let mid = n / 2;
+        permut[mid..n].reverse();
+        //println!("{:?}", permut);
+        self.set_permut(permut);
+    }
+
+    pub fn set_permut(&mut self, permut: Vec<usize>) {
         self.sigma = permut;
         // checks
         assert_eq!(self.nrows, self.ncols);
         let n = self.nrows;
-        let mut inv_permut: Vec<usize> = vec![n;n];
+        let mut inv_permut: Vec<usize> = vec![n; n];
         for i in 0..n {
             inv_permut[self.sigma[i]] = i;
         }
         for i in 0..n {
             assert_eq!(self.sigma[inv_permut[i]], i);
         }
+        self.inv_sigma = inv_permut;
         self.sky = vec![];
-        self.ltab = vec![];
-        self.utab = vec![];
-    }
-
-    pub fn bisection_bfs(&mut self){
-        self.compress();
-
+        self.ltab = vec![vec![];n];
+        self.utab = vec![vec![];n];
     }
 
     /// Full print of the coo matrix
@@ -158,16 +181,17 @@ impl Sky {
     // plot the non zero pattern of the matrix
     pub fn plot(&self) {
         let n = self.ncols;
-        assert_eq!(n,self.nrows);
+        assert_eq!(n, self.nrows);
         let nmax = n * n;
-        
         let xp: Vec<f64> = (0..n).map(|i| i as f64).collect();
-        let yp: Vec<f64> = (0..n).map(|i| (n-i) as f64).collect();
-        let zp = (0..nmax).map(|k| {
-            let i = k % n;
-            let j = k/n;
-            self.get_struct(i,j) 
-        }).collect();
+        let yp: Vec<f64> = (0..n).map(|i| (n - i) as f64).collect();
+        let zp = (0..nmax)
+            .map(|k| {
+                let i = k % n;
+                let j = k / n;
+                self.get_struct(i, j)
+            })
+            .collect();
         plotpy(xp, yp, zp);
     }
 
@@ -321,12 +345,12 @@ impl Sky {
         }
 
         self.coo = newcoo;
-        let mut rowstart:Vec<usize> = vec![];
+        let mut rowstart: Vec<usize> = vec![];
         rowstart.push(0);
         let mut count = 0;
         let mut is = 0;
 
-        self.coo.iter().enumerate().for_each(|(k,(i,_j,_v))| {
+        self.coo.iter().enumerate().for_each(|(k, (i, _j, _v))| {
             if *i != is {
                 rowstart.push(k);
                 is += 1;
@@ -338,7 +362,6 @@ impl Sky {
         // println!("{:?}",rowstart);
         // println!("{:?}",self.coo);
         // panic!();
-    
     }
 
     /// Matrix vector product using the coo array
@@ -367,12 +390,16 @@ impl Sky {
         }
         let mut prof: Vec<usize> = (0..n).collect();
         let mut sky: Vec<usize> = (0..n).collect();
-        self.compress();
         self.coo.iter().for_each(|(i, j, _v)| {
-            if self.sigma[*j] > self.sigma[*i] {
-                sky[*j] = sky[*j].min(*i);
+            let ip = self.inv_sigma[*i];
+            let jp = self.inv_sigma[*j];
+            // println!("{:?}",self.sigma);
+            // println!("{:?}",self.inv_sigma);
+            //panic!();
+            if jp > ip {
+                sky[jp] = sky[jp].min(ip);
             } else {
-                prof[*i] = prof[*i].min(*j);
+                prof[ip] = prof[ip].min(jp);
             }
         });
         self.prof = prof;
@@ -393,7 +420,7 @@ impl Sky {
 
         for k in 0..self.coo.len() {
             let (i, j, v) = self.coo[k];
-            let (ip, jp) = (self.sigma[i],self.sigma[j]);
+            let (ip, jp) = (self.inv_sigma[i], self.inv_sigma[j]);
             self.set_lu(ip, jp, v);
         }
     }
@@ -500,12 +527,14 @@ impl Sky {
     }
     /// Triangular solves
     /// Must be called after the LU decomposition !
-    pub fn solve(&mut self, mut b: Vec<f64>) -> Result<Vec<f64>, String> {
+    pub fn solve(&mut self, mut bp: Vec<f64>) -> Result<Vec<f64>, String> {
         let m = self.prof.len();
         if m == 0 {
             self.coo_to_sky();
             self.factolu()?;
         }
+        let m = self.prof.len();
+        let mut b: Vec<f64> = (0..m).map(|i| bp[self.sigma[i]]).collect();
         // descente
         let n = self.nrows;
         for i in 0..n {
@@ -522,7 +551,8 @@ impl Sky {
             }
             b[j] /= self.get_u(j, j);
         }
-        Ok(b)
+        bp = (0..m).map(|i| b[self.inv_sigma[i]]).collect();
+        Ok(bp)
     }
 
     /// Performs a LU decomposition on the full matrix
@@ -689,7 +719,6 @@ fn plotpy(xp: Vec<f64>, yp: Vec<f64>, zp: Vec<f64>) {
         .status()
         .expect("Plot failed: you need Python3 and Matplotlib in your PATH.");
 }
-
 
 /// Permutation algorithm used by gauss_solve
 fn gauss_permute(x: &mut Vec<f64>, sigma: &Vec<usize>) {

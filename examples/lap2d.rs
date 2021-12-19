@@ -10,8 +10,8 @@ fn main() {
     let lx = 1.;
     let ly = 2.;
 
-    let nx = 2;
-    let ny = 3;
+    let nx = 300;
+    let ny = 300;
 
     let dx = lx / nx as f64;
     let dy = ly / ny as f64;
@@ -52,9 +52,11 @@ fn main() {
     println!("Solving...");
     let mut m = skyrs::Sky::new(vecval);
     m.compress();
+    m.bisection_bfs();
     let zp = m.solve(vec![1.; n]).unwrap();
 
-    m.plot();
+    //m.plot();
+    println!("last={}",zp[n-1]);
 
 
     // plot
@@ -64,7 +66,7 @@ fn main() {
     println!("OK");
 
     println!("Trying to plot...");
-    plotpy(xp, yp, zp);
+    //plotpy(xp, yp, zp);
 }
 
 #[allow(dead_code)]
