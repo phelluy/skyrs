@@ -18,8 +18,8 @@ fn main() {
         for j in 0..ny + 1 {
             let k1 = j * (nx + 1) + i;
             let k2 = j * (nx + 1) + i + 1;
-            vecval.push((k1, k2, 1.));
-            vecval.push((k2, k1, 1.));
+            vecval.push((k1, k2, -1.));
+            vecval.push((k2, k1, -1.));
         }
     }
 
@@ -27,14 +27,14 @@ fn main() {
         for i in 0..nx + 1 {
             let k1 = j * (nx + 1) + i;
             let k2 = (j + 1) * (nx + 1) + i;
-            vecval.push((k1, k2, 1.));
-            vecval.push((k2, k1, 1.));
+            vecval.push((k1, k2, -1.));
+            vecval.push((k2, k1, -1.));
         }
     }
 
     // finding the largest eigenvalue/eigenvector
     println!("Solving...");
-    let m = skyrs::Sky::new(vecval.clone());
+    let mut m = skyrs::Sky::new(vecval.clone());
 
     // use rand::{thread_rng, Rng};
 
@@ -47,13 +47,16 @@ fn main() {
 
     let mut lambda = 0.;
 
-    for _iter in 0..800 {
-        let mut v = m.vec_mult(&u);
+    for _iter in 0..1 {
+        //let mut v = m.vec_mult(&u);
+        let moyu: f64 = u.iter().sum::<f64>() / n as f64;
+        u.iter_mut().for_each(|u| *u -= moyu);
+        let normu: f64 = u.iter().fold(0.0 / 0.0, |m, v| v.max(m));
+        let mut v = m.solve(u).unwrap();
         let moyv: f64 = v.iter().sum::<f64>() / n as f64;
         v.iter_mut().for_each(|u| *u -= moyv);
         // let normu: f64 = u.iter().map(|u| u * u).sum::<f64>().sqrt();
         // let normv: f64 = v.iter().map(|u| u * u).sum::<f64>().sqrt();
-        let normu: f64 = u.iter().fold(0.0 / 0.0, |m, v| v.max(m));
         let normv: f64 = v.iter().fold(0.0 / 0.0, |m, v| v.max(m));
         // println!("normu={}", normv);
         lambda = normv / normu;
@@ -84,20 +87,24 @@ fn main() {
 
     use petgraph::visit::Bfs;
 
-    let mut bfs = Bfs::new(&graph,20);
+    let k0 = 0 * (nx + 1) + 0;
 
-    let mut v:Vec<f64> = vec![0.;n];
+    let mut bfs = Bfs::new(&graph, k0);
 
-    let mut count:usize = 0;
-    v[0] = 20 as f64;
+    let mut v: Vec<f64> = vec![0.; n];
+
+    let mut count: usize = 0;
+    v[0] = k0 as f64;
     count += 1;
     while let Some(visited) = bfs.next(&graph) {
-        print!(" {}", visited);
+        println!(" {}", visited);
         v[visited] = count as f64;
         count += 1;
     }
     let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64).collect();
     let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64).collect();
+    v.iter_mut()
+        .for_each(|v| *v = if *v < n as f64 / 2. { 1. } else { -1. });
     plotpy(xp, yp, v);
 
     use petgraph::dot::Dot;
@@ -108,7 +115,7 @@ fn main() {
     {
         let mut meshfile = File::create("graph.dot").unwrap();
         let mut meshfile = BufWriter::new(meshfile); // create a buffer for faster writes...
-        //println!("{}", Dot::new(&graph));
+                                                     //println!("{}", Dot::new(&graph));
         let output = format!("{}", Dot::new(&graph));
         writeln!(meshfile, "{}", output);
     }
