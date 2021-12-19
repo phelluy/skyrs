@@ -1183,8 +1183,221 @@ Usual trick: if the vector
 Parallelization with the bisection method
 \end_layout
 
-\begin_layout Standard
+\begin_layout Subsection
+Bisection renumbering
+\end_layout
 
+\begin_layout Standard
+We consider the usual undirected graph 
+\begin_inset Formula $G=(V,E)$
+\end_inset
+
+ associated to the sparse matrix 
+\begin_inset Formula $A$
+\end_inset
+
+.
+ The set of vertices 
+\begin_inset Formula $V=\{0,1,\ldots n-1\}$
+\end_inset
+
+ and the set of edges 
+\begin_inset Formula $E\subset V\times V$
+\end_inset
+
+.
+ The couple 
+\begin_inset Formula $(i,j)$
+\end_inset
+
+ is an edge of 
+\begin_inset Formula $G$
+\end_inset
+
+ if 
+\begin_inset Formula $A_{j}^{i}\neq0$
+\end_inset
+
+ or 
+\begin_inset Formula $A_{i}^{j}\neq0$
+\end_inset
+
+.
+ We denote by 
+\begin_inset Formula $|C|$
+\end_inset
+
+ the number of elements in the set 
+\begin_inset Formula $C$
+\end_inset
+
+.
+ We consider a partition of the vertices of 
+\begin_inset Formula $G$
+\end_inset
+
+: 
+\begin_inset Formula 
+\[
+V=V_{0}\cup W,\quad V_{0}\cap W=\emptyset.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A good partition is a partition where 
+\begin_inset Formula $|V_{0}|\simeq|W|$
+\end_inset
+
+ and the number of edges between 
+\begin_inset Formula $V_{0}$
+\end_inset
+
+ and 
+\begin_inset Formula $W$
+\end_inset
+
+ is minimal.
+ It is difficult to construct an optimal bisection.
+ We shall consider in the following two different heuristics for splitting
+ 
+\begin_inset Formula $V$
+\end_inset
+
+: by a breadth-first-search (BFS) algorithm and by a spectral bisection
+ method.
+ But for the moment, assume that the splitting is done.
+ We then denote by 
+\begin_inset Formula $V_{1}$
+\end_inset
+
+ the set of vertices of 
+\begin_inset Formula $W$
+\end_inset
+
+ that are not connected to a vertex in 
+\begin_inset Formula $V_{0}$
+\end_inset
+
+.
+ And we denote by 
+\begin_inset Formula $V_{2}$
+\end_inset
+
+ the remaining vertices: they are in 
+\begin_inset Formula $W$
+\end_inset
+
+ and connected to a vertex in 
+\begin_inset Formula $V_{0}$
+\end_inset
+
+.
+ Let us define 
+\begin_inset Formula 
+\[
+n_{0}=|V_{0}|,\quad n_{1}=|V_{1}|,\quad n_{2}=|V_{2}|.
+\]
+
+\end_inset
+
+We then construct a permutation of the vertices of 
+\begin_inset Formula $V$
+\end_inset
+
+ by renumbering first the vertices of 
+\begin_inset Formula $V_{0}$
+\end_inset
+
+ then the verticies in 
+\begin_inset Formula $V_{1}$
+\end_inset
+
+ and finally the vertices in 
+\begin_inset Formula $V_{2}$
+\end_inset
+
+.
+ More precisely, let us denote by 
+\begin_inset Formula $\sigma:V\to V$
+\end_inset
+
+ this permutation, it has to satisfy
+\begin_inset Formula 
+\begin{alignat*}{1}
+\sigma(k)\in V_{0}, & \quad0\leq k<n_{0},\\
+\sigma(k)\in V_{1}, & \quad0\leq k-n_{0}<n_{1},\\
+\sigma(k)\in V_{2}, & \quad0\leq k-n_{0}-n_{1}<n_{2}.
+\end{alignat*}
+
+\end_inset
+
+We now consider the permuted matrix 
+\begin_inset Formula $B$
+\end_inset
+
+ constructed from 
+\begin_inset Formula $A$
+\end_inset
+
+ by the formula
+\begin_inset Formula 
+\[
+B_{j}^{i}=A_{\sigma(j)}^{\sigma(i)}.
+\]
+
+\end_inset
+
+The matrix 
+\begin_inset Formula $B$
+\end_inset
+
+ has the following structure
+\begin_inset Formula 
+\[
+B=\left(\begin{array}{ccc}
+C_{0}^{0} & 0 & C_{2}^{0}\\
+0 & C_{1}^{1} & C_{2}^{1}\\
+C_{0}^{2} & C_{1}^{2} & C_{2}^{2}
+\end{array}\right),
+\]
+
+\end_inset
+
+where the block matrix 
+\begin_inset Formula $C_{j}^{i}$
+\end_inset
+
+ is of size 
+\begin_inset Formula $n_{i}\times n_{j}$
+\end_inset
+
+.
+ The interest of this structure is that the Doolittle algorithm can now
+ be performed independently in parallel on the 
+\begin_inset Formula $C_{0}^{0}$
+\end_inset
+
+ and 
+\begin_inset Formula $C_{1}^{1}$
+\end_inset
+
+ blocks.
+ Then the remaining blocks can be computed.
+ If 
+\begin_inset Formula $n_{2}\ll n_{0}$
+\end_inset
+
+ and 
+\begin_inset Formula $n_{2}\ll n_{1}$
+\end_inset
+
+ this can be much more efficient.
+ In addition, the bisection can be reiterated on the diagonal blocks recursively.
+ 
 \end_layout
 
 \end_body
