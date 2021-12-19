@@ -110,29 +110,76 @@ impl Sky {
             inv_sigma,
         }
     }
-
-    pub fn bisection_bfs(&mut self) {
+    /// reorder the nodes in the range nmin..nmax
+    /// first apply a bfs on this range
+    /// then split the nodes into two
+    /// put the middle nodes at the end
+    /// this is performed in the old permutation
+    /// there is a bug: this algorithm do not accept 
+    /// an initial sigma which is not the identity...
+    pub fn bisection_bfs(&mut self, nmin:usize, nmax:usize) ->(usize,usize,usize){
         let n = self.nrows;
         assert_eq!(n, self.ncols);
+        // the coo array must be sorted by row and by col
         self.compress();
-        let mut permut: Vec<usize> = vec![];
+        let mut permut:Vec<usize> = self.sigma[0..nmin].iter().map(|s| *s).collect();
+        //let mut permut:Vec<usize> = vec![]; // todo works only if nmin == 0 !
+        // remember the locally visited nodes
         let mut visited: Vec<bool> = vec![false; n];
-        let start = 0;
+        // array for finding the boundary nodes
+        let mut cross: Vec<bool> = vec![false; n];
+        // initial node: this must be a physical number
+        let start = self.sigma[nmin];
+        // the logical node is visited
         visited[start] = true;
+        //permut.push(start);
         permut.push(start);
-        for loc in 0..n {
-            for i in self.rowstart[permut[loc]]..self.rowstart[permut[loc] + 1] {
+        let jindex = permut.len()-1;
+        println!("init jindex={}",jindex);
+        let mid = nmin + (nmax - nmin) / 2;
+        for loc in nmin..nmax {
+            println!("nmin={} nmax={} loc={}",nmin,nmax,loc);
+            let sloc = permut[loc];
+            for i in self.rowstart[sloc]..self.rowstart[sloc + 1] {
                 let (_, j, _) = self.coo[i];
-                if !visited[j] {
+                let js = self.inv_sigma[j];
+                if !visited[j] && js < nmax && js >= nmin {
                     visited[j] = true;
                     permut.push(j);
+                    let jindex = permut.len()-1;
+                    println!("jindex={}",jindex);
+                    if loc < mid && jindex >= mid {
+                        cross[j] = true;
+                    }
                 }
             }
         }
-        let mid = n / 2;
-        permut[mid..n].reverse();
-        //println!("{:?}", permut);
+        permut[mid..nmax].reverse();
+        let mut end:Vec<usize> = self.sigma[nmax..n].iter().map(|s| *s).collect();
+        permut.append(&mut end);
+        //println!("permut {:?}", permut);
+        //println!("cross {:?}", cross);
+        let it:Vec<bool> = permut.iter().map(|i| cross[*i]).collect();
+        //println!("cross bis {:?}", it);
+        //println!("visited {:?}", visited);
+        let n0 = mid;
+        let n1 = permut.iter().map(|i| cross[*i]).position(|v| v).unwrap();
+        let n2=nmax;
+        println!("nmin={} nmax={} n0={} n1={} n2={}",nmin,nmax,n0,n1,n2);
+        //panic!();
         self.set_permut(permut);
+        (n0,n1,n2)
+    }
+
+    /// recurse the above algorithm until each matrix is small enough
+    pub fn bisection_iter(&mut self, nmin:usize,nmax:usize){
+        if nmax - nmin >= 10 {
+            let (n0,n1,n2) = self.bisection_bfs(nmin,nmax);
+            println!("nmin={} nmax={} tr={:?}",nmin,nmax,(n0,n1,n2));
+            self.bisection_iter(n0,n1);            
+            self.bisection_iter(n1,n2);
+        }
+
     }
 
     pub fn set_permut(&mut self, permut: Vec<usize>) {

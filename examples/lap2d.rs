@@ -10,8 +10,8 @@ fn main() {
     let lx = 1.;
     let ly = 2.;
 
-    let nx = 30;
-    let ny = 30;
+    let nx = 7;
+    let ny = 7;
 
     let dx = lx / nx as f64;
     let dy = ly / ny as f64;
@@ -52,7 +52,15 @@ fn main() {
     println!("Solving...");
     let mut m = skyrs::Sky::new(vecval);
     m.compress();
-    m.bisection_bfs();
+    let (n0,n1,n2) = m.bisection_bfs(0,n/4);
+    let (n0,n1,n2) = m.bisection_bfs(n/4,n/2);
+    let (n0,n1,n2) = m.bisection_bfs(n/2,3*n/4);
+    let (n0,n1,n2) = m.bisection_bfs(3*n/4,n);
+    //m.bisection_bfs(0,n0);
+    //let (p0,p1,p2) = m.bisection_bfs(n/2,n);
+    //m.bisection_bfs(p0,p1);
+    //m.bisection_bfs(p1,p2);
+    //m.bisection_iter(0,n);
     let zp = m.solve(vec![1.; n]).unwrap();
 
     m.plot();
