@@ -10,8 +10,8 @@ fn main() {
     let lx = 1.;
     let ly = 2.;
 
-    let nx = 10;
-    let ny = 20;
+    let nx = 2;
+    let ny = 3;
 
     let dx = lx / nx as f64;
     let dy = ly / ny as f64;
@@ -51,6 +51,7 @@ fn main() {
     // linear system resolution
     println!("Solving...");
     let mut m = skyrs::Sky::new(vecval);
+    m.compress();
     let zp = m.solve(vec![1.; n]).unwrap();
 
     m.plot();

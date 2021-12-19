@@ -37,6 +37,8 @@
 #[derive(Debug, Clone)]
 pub struct Sky {
     coo: Vec<(usize, usize, f64)>,
+    /// row start array in coo (when compressed)
+    rowstart: Vec<usize>,
     nrows: usize,
     ncols: usize,
     /// skyline
@@ -47,6 +49,8 @@ pub struct Sky {
     ltab: Vec<Vec<f64>>,
     /// columns of U
     utab: Vec<Vec<f64>>,
+    /// permutation
+    sigma: Vec<usize>,
 }
 
 const WIDTH: usize = 12;
@@ -90,15 +94,40 @@ impl Sky {
             Some(j) => j + 1,
             None => 0,
         };
+        let sigma:Vec<usize> = (0..nrows).collect(); 
         Sky {
             coo,
+            rowstart: vec![],
             nrows,
             ncols,
             sky: vec![],
             prof: vec![],
             ltab: vec![vec![]; nrows],
             utab: vec![vec![]; ncols],
+            sigma,
         }
+    }
+
+    pub fn set_permut(&mut self, permut: Vec<usize>){
+        self.sigma = permut;
+        // checks
+        assert_eq!(self.nrows, self.ncols);
+        let n = self.nrows;
+        let mut inv_permut: Vec<usize> = vec![n;n];
+        for i in 0..n {
+            inv_permut[self.sigma[i]] = i;
+        }
+        for i in 0..n {
+            assert_eq!(self.sigma[inv_permut[i]], i);
+        }
+        self.sky = vec![];
+        self.ltab = vec![];
+        self.utab = vec![];
+    }
+
+    pub fn bisection_bfs(&mut self){
+        self.compress();
+
     }
 
     /// Full print of the coo matrix
@@ -252,7 +281,7 @@ impl Sky {
     }
 
     /// Sort the coo array and combine values for the same (i,j) indices
-    fn compress(&mut self) {
+    pub fn compress(&mut self) {
         if self.coo.is_empty() {
             return;
         };
@@ -292,6 +321,24 @@ impl Sky {
         }
 
         self.coo = newcoo;
+        let mut rowstart:Vec<usize> = vec![];
+        rowstart.push(0);
+        let mut count = 0;
+        let mut is = 0;
+
+        self.coo.iter().enumerate().for_each(|(k,(i,_j,_v))| {
+            if *i != is {
+                rowstart.push(k);
+                is += 1;
+                count += 1;
+            }
+        });
+        rowstart.push(self.coo.len());
+        self.rowstart = rowstart;
+        // println!("{:?}",rowstart);
+        // println!("{:?}",self.coo);
+        // panic!();
+    
     }
 
     /// Matrix vector product using the coo array
@@ -322,7 +369,7 @@ impl Sky {
         let mut sky: Vec<usize> = (0..n).collect();
         self.compress();
         self.coo.iter().for_each(|(i, j, _v)| {
-            if j > i {
+            if self.sigma[*j] > self.sigma[*i] {
                 sky[*j] = sky[*j].min(*i);
             } else {
                 prof[*i] = prof[*i].min(*j);
@@ -346,7 +393,8 @@ impl Sky {
 
         for k in 0..self.coo.len() {
             let (i, j, v) = self.coo[k];
-            self.set_lu(i, j, v);
+            let (ip, jp) = (self.sigma[i],self.sigma[j]);
+            self.set_lu(ip, jp, v);
         }
     }
 
