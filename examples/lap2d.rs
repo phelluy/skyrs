@@ -1,17 +1,17 @@
-/// Solves the Laplace equation on a square with the 
+/// Solves the Laplace equation on a square with the
 /// finite difference method.
 /// This example requires a working installation of Python3
-/// and Matplotlib: the PATH environment variable has to be 
+/// and Matplotlib: the PATH environment variable has to be
 /// correctly set.
 /// If Matplotlib is not available, the example will run but
 /// the results will not show up.
 fn main() {
     // grid definition
-    let lx = 1.;
+    let lx = 40.;
     let ly = 2.;
 
-    let nx = 7;
-    let ny = 7;
+    let nx = 400;
+    let ny = 20;
 
     let dx = lx / nx as f64;
     let dy = ly / ny as f64;
@@ -42,7 +42,7 @@ fn main() {
     for j in 0..ny {
         for i in 0..nx + 1 {
             let k1 = j * (nx + 1) + i;
-            let k2 = (j+1) * (nx + 1) + i;
+            let k2 = (j + 1) * (nx + 1) + i;
             vecval.push((k1, k2, -1. / dy / dx));
             vecval.push((k2, k1, -1. / dy / dx));
         }
@@ -51,30 +51,34 @@ fn main() {
     // linear system resolution
     println!("Solving...");
     let mut m = skyrs::Sky::new(vecval);
-    m.compress();
-    let (n0,n1,n2) = m.bisection_bfs(0,n/4);
-    let (n0,n1,n2) = m.bisection_bfs(n/4,n/2);
-    let (n0,n1,n2) = m.bisection_bfs(n/2,3*n/4);
-    let (n0,n1,n2) = m.bisection_bfs(3*n/4,n);
+    //let (n0,n1,n2) = m.bisection_bfs(0,n);
+    //m.bisection_bfs(0,n0);
+    //let (p0,p1,p2) = m.bisection_bfs(n0,n1);
+    //m.bisection_bfs(n1,n2);
+    //let (p0,p1,p2) = m.bisection_bfs(0,n1);
     //m.bisection_bfs(0,n0);
     //let (p0,p1,p2) = m.bisection_bfs(n/2,n);
     //m.bisection_bfs(p0,p1);
     //m.bisection_bfs(p1,p2);
-    //m.bisection_iter(0,n);
+    println!("bisection...");
+    m.bisection_iter(0,n);
+    //m.bfs_renumber(0);
+
+    println!("solve...");
     let zp = m.solve(vec![1.; n]).unwrap();
-
-    m.plot();
-    println!("last={}",zp[n-1]);
-
-
-    // plot
-    let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
-    let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
+    let f = m.vec_mult(&zp);
+    let err:f64 = f.iter().zip((vec![1.; n]).iter()).map(|(f,v)| (f-v).abs()).sum();
+    println!("err={:e}", err / n as f64);
 
     println!("OK");
 
-    println!("Trying to plot...");
-    plotpy(xp, yp, zp);
+    // plot
+
+    // println!("Trying to plot...");
+    // m.plot();
+    // let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
+    // let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
+    // plotpy(xp, yp, zp);
 }
 
 #[allow(dead_code)]

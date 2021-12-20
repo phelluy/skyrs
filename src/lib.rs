@@ -97,6 +97,7 @@ impl Sky {
         };
         let sigma: Vec<usize> = (0..nrows).collect();
         let inv_sigma = sigma.clone();
+        let mut sky =
         Sky {
             coo,
             rowstart: vec![],
@@ -108,7 +109,9 @@ impl Sky {
             utab: vec![vec![]; ncols],
             sigma,
             inv_sigma,
-        }
+        };
+        sky.compress();
+        sky
     }
     /// reorder the nodes in the range nmin..nmax
     /// first apply a bfs on this range
@@ -121,63 +124,120 @@ impl Sky {
         let n = self.nrows;
         assert_eq!(n, self.ncols);
         // the coo array must be sorted by row and by col
-        self.compress();
-        let mut permut:Vec<usize> = self.sigma[0..nmin].iter().map(|s| *s).collect();
-        //let mut permut:Vec<usize> = vec![]; // todo works only if nmin == 0 !
+        let ns = nmax - nmin;
+        // for storing the permutation in sigma[nmin..nmax]
+        let mut permut:Vec<usize> = vec![]; 
         // remember the locally visited nodes
-        let mut visited: Vec<bool> = vec![false; n];
+        let mut visited: Vec<bool> = vec![false; ns];
         // array for finding the boundary nodes
-        let mut cross: Vec<bool> = vec![false; n];
+        let mut cross: Vec<bool> = vec![false; ns];
         // initial node: this must be a physical number
-        let start = self.sigma[nmin];
+        let start = nmin - nmin;
         // the logical node is visited
         visited[start] = true;
         //permut.push(start);
-        permut.push(start);
-        let jindex = permut.len()-1;
-        println!("init jindex={}",jindex);
+        permut.push(nmin);
+        //println!("init jindex={}",jindex);
+        // middle index of the visited list
         let mid = nmin + (nmax - nmin) / 2;
         for loc in nmin..nmax {
-            println!("nmin={} nmax={} loc={}",nmin,nmax,loc);
-            let sloc = permut[loc];
+            // if nodes are exhausted take the first one which is not
+            // visited. This may happen because the sub-graphs
+            // are not necessarily connected...
+            if permut.len() <= loc-nmin {
+                let rs = visited.iter().position(|visited| !visited);
+                let rs = rs.unwrap()+nmin;
+                permut.push(rs);
+                visited[rs-nmin] = true;
+            };
+            let sloc = self.sigma[ permut[loc-nmin]];
             for i in self.rowstart[sloc]..self.rowstart[sloc + 1] {
                 let (_, j, _) = self.coo[i];
                 let js = self.inv_sigma[j];
-                if !visited[j] && js < nmax && js >= nmin {
-                    visited[j] = true;
-                    permut.push(j);
+                if js < ns && !visited[js-nmin]  {
+                    visited[js-nmin] = true;
+                    permut.push(js);
                     let jindex = permut.len()-1;
-                    println!("jindex={}",jindex);
-                    if loc < mid && jindex >= mid {
-                        cross[j] = true;
+                    //println!("jindex={}",jindex);
+                    if loc < mid && jindex >= mid-nmin {
+                        cross[js-nmin] = true;
                     }
                 }
             }
         }
-        permut[mid..nmax].reverse();
-        let mut end:Vec<usize> = self.sigma[nmax..n].iter().map(|s| *s).collect();
-        permut.append(&mut end);
+        permut[mid-nmin..nmax-nmin].reverse();
+        //println!("nmin={} nmax={} loc permut={:?}",nmin,nmax,permut);
+        let n1 = permut.iter().map(|i| cross[i-nmin]).position(|v| v);
+        let n1 = match n1 {
+            Some(k) => k + nmin,
+            None => nmax
+        };
+        //println!
+        for i in nmin..nmax {
+            permut[i-nmin] = self.sigma[permut[i-nmin]];
+        }
+        for i in nmin..nmax {
+            self.sigma[i] = permut[i-nmin];
+        }
+
+        //update inverse permutation
+        for i in nmin..nmax {
+            self.inv_sigma[self.sigma[i]] = i;
+        }
+
+
+        
+        // let mut end:Vec<usize> = self.sigma[nmax..n].iter().map(|s| *s).collect();
+        // permut.append(&mut end);
         //println!("permut {:?}", permut);
+        //panic!();
         //println!("cross {:?}", cross);
-        let it:Vec<bool> = permut.iter().map(|i| cross[*i]).collect();
+        //let it:Vec<bool> = permut.iter().map(|i| cross[*i]).collect();
         //println!("cross bis {:?}", it);
         //println!("visited {:?}", visited);
         let n0 = mid;
-        let n1 = permut.iter().map(|i| cross[*i]).position(|v| v).unwrap();
         let n2=nmax;
-        println!("nmin={} nmax={} n0={} n1={} n2={}",nmin,nmax,n0,n1,n2);
+        //println!("nmin={} nmax={} n0={} n1={} n2={}",nmin,nmax,n0,n1,n2);
         //panic!();
-        self.set_permut(permut);
+        //self.set_permut(self.sigma.clone());
         (n0,n1,n2)
+    }
+
+    pub fn bfs_renumber(&mut self, start:usize) {
+        let n = self.nrows;
+        assert_eq!(n, self.ncols);
+        let mut permut:Vec<usize> = vec![]; 
+        // remember the locally visited nodes
+        let mut visited: Vec<bool> = vec![false; n];
+        // array for finding the boundary nodes
+        // initial node: this must be a physical number
+        // the logical node is visited
+        visited[start] = true;
+        //permut.push(start);
+        permut.push(start);
+
+        for loc in 0..n {
+            // the mesh is supposed to be connected
+            for i in self.rowstart[loc]..self.rowstart[loc + 1] {
+                let (_, j, _) = self.coo[i];
+                if !visited[j]  {
+                    visited[j] = true;
+                    permut.push(j);
+                }
+            }
+        }
+        permut[0..n].reverse();
+        //println!("permut={:?}",permut);
+        self.set_permut(permut);
     }
 
     /// recurse the above algorithm until each matrix is small enough
     pub fn bisection_iter(&mut self, nmin:usize,nmax:usize){
-        if nmax - nmin >= 10 {
-            let (n0,n1,n2) = self.bisection_bfs(nmin,nmax);
-            println!("nmin={} nmax={} tr={:?}",nmin,nmax,(n0,n1,n2));
-            self.bisection_iter(n0,n1);            
-            self.bisection_iter(n1,n2);
+        if nmax - nmin >= self.nrows / 8 {
+            let (n0,n1,_n2) = self.bisection_bfs(nmin,nmax);
+            //println!("nmin={} nmax={} tr={:?}",nmin,nmax,(n0,n1,n2));
+            self.bisection_iter(nmin,n0);            
+            self.bisection_iter(n0,n1);
         }
 
     }
@@ -195,7 +255,10 @@ impl Sky {
             assert_eq!(self.sigma[inv_permut[i]], i);
         }
         self.inv_sigma = inv_permut;
+
+        // invalidate a possible LU decomposition
         self.sky = vec![];
+        self.prof = vec![];
         self.ltab = vec![vec![];n];
         self.utab = vec![vec![];n];
     }
@@ -463,6 +526,12 @@ impl Sky {
             self.utab[j] = vec![0.; j - self.sky[j] + 1];
         }
 
+        // let mut nnz = 0;
+        // for i in 0..n {
+        //     nnz += self.utab[i].len()+self.ltab[i].len();
+        // }
+        // println!("nnz={}",nnz);
+
         //println!("LU={:?}", self);
 
         for k in 0..self.coo.len() {
@@ -551,7 +620,7 @@ impl Sky {
     /// Performs a LU decomposition on the sparse matrix
     /// with the Doolittle algorithm
     pub fn factolu(&mut self) -> Result<(), String> {
-        self.coo_to_sky();
+        //self.coo_to_sky();
         let n = self.nrows;
         for k in 1..n {
             for j in self.prof[k]..k {
