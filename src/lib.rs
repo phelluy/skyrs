@@ -34,6 +34,9 @@
 ///
 /// assert!(erreur < 1e-13);
 /// ```
+
+use rayon::prelude::*; 
+
 #[derive(Debug, Clone)]
 pub struct Sky {
     coo: Vec<(usize, usize, f64)>,
@@ -494,7 +497,8 @@ impl Sky {
     }
 
     /// Matrix vector product using the coo array
-    pub fn vec_mult(&self, u: &Vec<f64>) -> Vec<f64> {
+    /// sequential version
+    pub fn vec_mult_slow(&self, u: &Vec<f64>) -> Vec<f64> {
         let mut v: Vec<f64> = vec![0.; self.nrows];
         if u.len() != self.ncols {
             panic!(
@@ -508,6 +512,28 @@ impl Sky {
         });
         v
     }
+
+    
+    /// Matrix vector product using the coo array
+    /// parallel version
+    pub fn vec_mult(&self, u: &Vec<f64>) -> Vec<f64> {
+        let n = self.nrows;
+        let mut v: Vec<f64> = vec![0.; self.nrows];
+        if u.len() != self.ncols {
+            panic!(
+                "ncols={} is not equal to vector length={}",
+                self.ncols,
+                u.len()
+            );
+        };
+        v.par_iter_mut().enumerate().for_each(|(i,v)| {
+            self.coo[self.rowstart[i]..self.rowstart[i+1]].iter().for_each(|coo| {
+                *v += coo.2 * u[coo.1];
+            });
+        });
+        v
+    }
+
 
     /// Convert the coo array to the skyline format internally
     /// The coo array is compressed before the construction
