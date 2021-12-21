@@ -177,9 +177,8 @@ impl Sky {
         for i in nmin..nmax {
             permut[i - nmin] = self.sigma[permut[i - nmin]];
         }
-        for i in nmin..nmax {
-            self.sigma[i] = permut[i - nmin];
-        }
+
+        self.sigma[nmin..nmax].clone_from_slice(&permut[..(nmax - nmin)]);
 
         //update inverse permutation
         for i in nmin..nmax {
@@ -265,7 +264,7 @@ impl Sky {
     #[allow(dead_code)]
     pub fn print_coo(&self) {
         // first search the size of the matrix
-        if self.coo.len() == 0 {
+        if self.coo.is_empty() {
             return;
         }
 
@@ -896,11 +895,11 @@ fn plotpy(xp: Vec<f64>, yp: Vec<f64>, zp: Vec<f64>) {
         xp.iter().for_each(|x| {
             writeln!(meshfile, "{}", x).unwrap();
         });
-        writeln!(meshfile, "").unwrap();
+        writeln!(meshfile).unwrap();
         yp.iter().for_each(|y| {
             writeln!(meshfile, "{}", y).unwrap();
         });
-        writeln!(meshfile, "").unwrap();
+        writeln!(meshfile).unwrap();
         zp.iter().for_each(|z| {
             writeln!(meshfile, "{}", z).unwrap();
         });

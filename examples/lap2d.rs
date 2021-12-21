@@ -71,31 +71,29 @@ fn main() {
     zero_mean(&mut f);
 
     // largest eigenvalue by the power method
-    for block in 0..31 {
-        for _iter in 0..nx.max(ny)/2 {
-            f = m.vec_mult(&f);
-            zero_mean(&mut f);
-            let nf: f64 = f.par_iter().map(|f| *f * *f).sum();
-            let nf = (nf / n as f64).sqrt();
-            a = nf;
-            //println!("nf={} a={} b={}",nf,a,b);
-            f.par_iter_mut().for_each(|f| *f /= nf);
-        }
-
-        let duration = start.elapsed();
-        println!("Power method time: {:?} eig={}", duration, a);
-
-        let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
-        let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
-
-        // convert to {-1,1} for get the nodal line
-
-        f.par_iter_mut().for_each(|f| {
-            *f = if *f > 0. { 1. } else { -1. };
-        });
-        println!("Plot block {}", block);
-        plotpy(xp, yp, f.clone());
+    for _iter in 0..30 * nx.max(ny) / 2 {
+        f = m.vec_mult(&f);
+        zero_mean(&mut f);
+        let nf: f64 = f.par_iter().map(|f| *f * *f).sum();
+        let nf = (nf / n as f64).sqrt();
+        a = nf;
+        //println!("nf={} a={} b={}",nf,a,b);
+        f.par_iter_mut().for_each(|f| *f /= nf);
     }
+
+    let duration = start.elapsed();
+    println!("Power method time: {:?} eig={}", duration, a);
+
+    let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
+    let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
+
+    // convert to {-1,1} for get the nodal line
+
+    f.par_iter_mut().for_each(|f| {
+        *f = if *f > 0. { 1. } else { -1. };
+    });
+    println!("Plot nodal line");
+    plotpy(xp, yp, f.clone());
 
     println!("OK");
 
