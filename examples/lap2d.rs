@@ -5,13 +5,16 @@
 /// correctly set.
 /// If Matplotlib is not available, the example will run but
 /// the results will not show up.
+ 
+use rayon::prelude::*;
+
 fn main() {
     // grid definition
     let lx = 4.;
     let ly = 2.;
 
-    let nx = 200;
-    let ny = 100;
+    let nx = 199;
+    let ny = 99;
 
     let dx = lx / nx as f64;
     let dy = ly / ny as f64;
@@ -24,7 +27,7 @@ fn main() {
         let i = k % (nx + 1);
         let j = k / (nx + 1);
         if i == 0 || i == nx || j == 0 || j == ny {
-            vecval.push((k, k, 1e20));
+            vecval.push((k, k, 100./dx/dx));
         } else {
             vecval.push((k, k, 4. / dx / dy));
         }
@@ -66,12 +69,33 @@ fn main() {
 
     println!("solve...");
     let f0 = vec![1.; n];
+    //use std::time::{Duration, Instant};
+    use std::time::{Instant};
+    let start = Instant::now();
     let zp = m.solve(f0.clone()).unwrap();
+    let duration = start.elapsed();
+    println!("Solving time: {:?}", duration);
     println!("nnz={}", m.get_nnz());
 
     let f = m.vec_mult(&zp);
+
     let err: f64 = f.iter().zip(f0.iter()).map(|(f, f0)| (f - f0).abs()).sum();
     println!("err={:e}", err / n as f64);
+
+    // benchmark of the parallel product
+    let start = Instant::now();
+    let mut a =0.;
+    let f:Vec<f64> = (0..n).map(|i| (1. + i as f64)/(n as f64)).collect();
+    for _iter in 0..10000 {
+        let mut f = m.vec_mult(&f);
+        let nf: f64 = f.par_iter().map(|f| *f * *f).sum();
+        let nf = (nf / n as f64).sqrt();
+        a = nf;
+        //println!("nf={} a={} b={}",nf,a,b);
+        f.par_iter_mut().for_each(|f| *f /= nf);
+    }
+    let duration = start.elapsed();
+    println!("Product time: {:?} eig={}", duration,a);
 
     println!("OK");
 

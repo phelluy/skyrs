@@ -34,8 +34,7 @@
 ///
 /// assert!(erreur < 1e-13);
 /// ```
-
-use rayon::prelude::*; 
+use rayon::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct Sky {
@@ -353,19 +352,19 @@ impl Sky {
         }
     }
 
-    /// Return one if (i,j) is in the profile or the skyline
-    /// and zero otherwise
-    fn get_struct(&self, i: usize, j: usize) -> f64 {
-        assert!(i < self.nrows);
-        assert!(j < self.ncols);
-        if i > j && j >= self.prof[i] {
-            1.
-        } else if i <= j && i >= self.sky[j] {
-            1.
-        } else {
-            0.
-        }
-    }
+    // Return one if (i,j) is in the profile or the skyline
+    // and zero otherwise
+    // fn get_struct(&self, i: usize, j: usize) -> f64 {
+    //     assert!(i < self.nrows);
+    //     assert!(j < self.ncols);
+    //     if i > j && j >= self.prof[i] {
+    //         1.
+    //     } else if i <= j && i >= self.sky[j] {
+    //         1.
+    //     } else {
+    //         0.
+    //     }
+    // }
 
     /// Return the value at position (i,j) in L-I+U
     /// Fail if (i,j) is not in the profile or the skyline
@@ -513,11 +512,9 @@ impl Sky {
         v
     }
 
-    
     /// Matrix vector product using the coo array
     /// parallel version
     pub fn vec_mult(&self, u: &Vec<f64>) -> Vec<f64> {
-        let n = self.nrows;
         let mut v: Vec<f64> = vec![0.; self.nrows];
         if u.len() != self.ncols {
             panic!(
@@ -526,14 +523,47 @@ impl Sky {
                 u.len()
             );
         };
-        v.par_iter_mut().enumerate().for_each(|(i,v)| {
-            self.coo[self.rowstart[i]..self.rowstart[i+1]].iter().for_each(|coo| {
-                *v += coo.2 * u[coo.1];
-            });
+
+        // let n = self.nrows;
+        // let size = 1000;
+        // let ngroups = n / size;
+
+        // assert!(n%size == 0); // for the moment...
+
+        // v.par_chunks_mut(size).enumerate().for_each(|(ig, cv)| {
+        //     let imin = ig * size;
+        //     cv.iter_mut().enumerate().for_each(|(i, v)| {
+        //         //println!("imin={} imax={} i={}",imin,imax,i);
+        //         self.coo[self.rowstart[i + imin]..self.rowstart[i + imin+1]]
+        //             .iter()
+        //             .for_each(|coo| {
+        //                 *v += coo.2 * u[coo.1];
+        //             });
+        //     });
+        // });
+
+        // (0..ngroups+1).for_each(|ig| {
+        //     let imin = ig * size;
+        //     let imax = ((ig + 1) * size).min(v.len());
+        //     v[imin..imax].iter_mut().enumerate().for_each(|(i, v)| {
+        //         //println!("imin={} imax={} i={}",imin,imax,i);
+        //         self.coo[self.rowstart[i + imin]..self.rowstart[i + imin + 1]]
+        //             .iter()
+        //             .for_each(|coo| {
+        //                 *v += coo.2 * u[coo.1];
+        //             });
+        //     });
+        // });
+
+        v.par_iter_mut().enumerate().for_each(|(i, v)| {
+            self.coo[self.rowstart[i]..self.rowstart[i + 1]]
+                .iter()
+                .for_each(|coo| {
+                    *v += coo.2 * u[coo.1];
+                });
         });
         v
     }
-
 
     /// Convert the coo array to the skyline format internally
     /// The coo array is compressed before the construction
