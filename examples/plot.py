@@ -36,4 +36,3 @@ cbar = fig.colorbar(cs)
 
 print("press \'q\' to quit...");
 show()
-print("The end")
