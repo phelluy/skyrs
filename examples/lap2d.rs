@@ -9,10 +9,10 @@ use rayon::prelude::*;
 
 fn main() {
     ////////////////// Dirichlet ////////////////////
-    let lx = 1.;
-    let ly = 2.;
-    let nx = 50;
-    let ny = 75;
+    let lx = 2.;
+    let ly = 1.;
+    let nx = 100;
+    let ny = 50;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
 
@@ -51,9 +51,9 @@ fn main() {
     /////////////// Neumann //////////////////////////////
 
     println!("Neumann assembly...");
-    let vecval = neumann(lx, ly, nx, ny);
+    let vecval = lapgraph(nx, ny);
 
-    let mut m = skyrs::Sky::new(vecval);
+    let m = skyrs::Sky::new(vecval);
 
     // benchmark of the parallel product
     let start = Instant::now();
@@ -65,28 +65,37 @@ fn main() {
             let j = k % (nx + 1);
             let y = i as f64 / nx as f64;
             let x = j as f64 / ny as f64;
-            y+x*x
+            y + x * x
         })
         .collect();
-        zero_mean(&mut f);
+    zero_mean(&mut f);
 
     // largest eigenvalue by the power method
-    for _iter in 0..30*nx.max(ny) {
-        f = m.vec_mult(&f);
-        zero_mean(&mut f);
-        let nf: f64 = f.par_iter().map(|f| *f * *f).sum();
-        let nf = (nf / n as f64).sqrt();
-        a = nf;
-        //println!("nf={} a={} b={}",nf,a,b);
-        f.par_iter_mut().for_each(|f| *f /= nf);
+    for block in 0..31 {
+        for _iter in 0..nx.max(ny)/2 {
+            f = m.vec_mult(&f);
+            zero_mean(&mut f);
+            let nf: f64 = f.par_iter().map(|f| *f * *f).sum();
+            let nf = (nf / n as f64).sqrt();
+            a = nf;
+            //println!("nf={} a={} b={}",nf,a,b);
+            f.par_iter_mut().for_each(|f| *f /= nf);
+        }
+
+        let duration = start.elapsed();
+        println!("Power method time: {:?} eig={}", duration, a);
+
+        let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
+        let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
+
+        // convert to {-1,1} for get the nodal line
+
+        f.par_iter_mut().for_each(|f| {
+            *f = if *f > 0. { 1. } else { -1. };
+        });
+        println!("Plot block {}", block);
+        plotpy(xp, yp, f.clone());
     }
-
-    let duration = start.elapsed();
-    println!("Power method time: {:?} eig={}", duration, a);
-
-    let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
-    let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
-    plotpy(xp, yp, f.clone());
 
     println!("OK");
 
@@ -129,6 +138,7 @@ fn plotpy(xp: Vec<f64>, yp: Vec<f64>, zp: Vec<f64>) {
         .expect("Plot failed: you need Python3 and Matplotlib in your PATH.");
 }
 
+#[allow(dead_code)]
 fn apply_dirichlet(x: &mut Vec<f64>, nx: usize, ny: usize) {
     x.iter_mut().enumerate().for_each(|(k, x)| {
         let i = k % (nx + 1);
@@ -160,7 +170,7 @@ fn dirichlet(lx: f64, ly: f64, nx: usize, ny: usize) -> Vec<(usize, usize, f64)>
             //vecval.push((k, k, 100. / dx / dx));
             vecval.push((k, k, 1e20));
         } else {
-            vecval.push((k, k, 4. / dx / dy));
+            vecval.push((k, k, 2. / dx / dx + 2. / dy / dy));
         }
     }
 
@@ -168,8 +178,8 @@ fn dirichlet(lx: f64, ly: f64, nx: usize, ny: usize) -> Vec<(usize, usize, f64)>
         for j in 0..ny + 1 {
             let k1 = j * (nx + 1) + i;
             let k2 = j * (nx + 1) + i + 1;
-            vecval.push((k1, k2, -1. / dx / dy));
-            vecval.push((k2, k1, -1. / dx / dy));
+            vecval.push((k1, k2, -1. / dx / dx));
+            vecval.push((k2, k1, -1. / dx / dx));
         }
     }
 
@@ -177,37 +187,30 @@ fn dirichlet(lx: f64, ly: f64, nx: usize, ny: usize) -> Vec<(usize, usize, f64)>
         for i in 0..nx + 1 {
             let k1 = j * (nx + 1) + i;
             let k2 = (j + 1) * (nx + 1) + i;
-            vecval.push((k1, k2, -1. / dy / dx));
-            vecval.push((k2, k1, -1. / dy / dx));
+            vecval.push((k1, k2, -1. / dy / dy));
+            vecval.push((k2, k1, -1. / dy / dy));
         }
     }
 
     vecval
 }
 
-fn neumann(lx: f64, ly: f64, nx: usize, ny: usize) -> Vec<(usize, usize, f64)> {
-    // grid definition
-    let dx = lx / nx as f64;
-    let dy = ly / ny as f64;
-
-    let dx = 1.;
-    let dy = 1.;
-
+fn lapgraph(nx: usize, ny: usize) -> Vec<(usize, usize, f64)> {
     let mut vecval = vec![];
 
     let n = (nx + 1) * (ny + 1);
     for k in 0..n {
         // let i = k % (nx + 1);
         // let j = k / (nx + 1);
-        vecval.push((k, k, 4. / dx / dy));
+        vecval.push((k, k, 4.));
     }
 
     for i in 0..nx {
         for j in 0..ny + 1 {
             let k1 = j * (nx + 1) + i;
             let k2 = j * (nx + 1) + i + 1;
-            vecval.push((k1, k2, 1. / dx / dy));
-            vecval.push((k2, k1, 1. / dx / dy));
+            vecval.push((k1, k2, 1.));
+            vecval.push((k2, k1, 1.));
         }
     }
 
@@ -215,8 +218,8 @@ fn neumann(lx: f64, ly: f64, nx: usize, ny: usize) -> Vec<(usize, usize, f64)> {
         for i in 0..nx + 1 {
             let k1 = j * (nx + 1) + i;
             let k2 = (j + 1) * (nx + 1) + i;
-            vecval.push((k1, k2, 1. / dy / dx));
-            vecval.push((k2, k1, 1. / dy / dx));
+            vecval.push((k1, k2, 1.));
+            vecval.push((k2, k1, 1.));
         }
     }
 

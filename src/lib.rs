@@ -1,3 +1,5 @@
+use rayon::prelude::*;
+
 /// Sparse matrix with skyline storage
 /// # Examples
 /// ```
@@ -34,8 +36,6 @@
 ///
 /// assert!(erreur < 1e-13);
 /// ```
-use rayon::prelude::*;
-
 #[derive(Debug, Clone)]
 pub struct Sky {
     coo: Vec<(usize, usize, f64)>,
