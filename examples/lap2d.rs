@@ -7,11 +7,11 @@
 /// the results will not show up.
 fn main() {
     // grid definition
-    let lx = 40.;
+    let lx = 4.;
     let ly = 2.;
 
-    let nx = 400;
-    let ny = 20;
+    let nx = 300;
+    let ny = 300;
 
     let dx = lx / nx as f64;
     let dy = ly / ny as f64;
@@ -61,13 +61,18 @@ fn main() {
     //m.bisection_bfs(p0,p1);
     //m.bisection_bfs(p1,p2);
     println!("bisection...");
-    m.bisection_iter(0,n);
+    m.bisection_iter(0, n);
     //m.bfs_renumber(0);
 
     println!("solve...");
-    let zp = m.solve(vec![1.; n]).unwrap();
+    let f0 = vec![1.; n];
+    let zp = m.solve(f0.clone()).unwrap();
     let f = m.vec_mult(&zp);
-    let err:f64 = f.iter().zip((vec![1.; n]).iter()).map(|(f,v)| (f-v).abs()).sum();
+    let err: f64 = f
+        .iter()
+        .zip(f0.iter())
+        .map(|(f, f0)| (f - f0).abs())
+        .sum();
     println!("err={:e}", err / n as f64);
 
     println!("OK");
@@ -75,7 +80,7 @@ fn main() {
     // plot
 
     // println!("Trying to plot...");
-    // m.plot();
+    m.plot(400);
     // let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
     // let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
     // plotpy(xp, yp, zp);
