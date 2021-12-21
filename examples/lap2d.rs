@@ -12,7 +12,7 @@ fn main() {
     let lx = 1.;
     let ly = 2.;
     let nx = 50;
-    let ny = 100;
+    let ny = 75;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
 
@@ -65,13 +65,13 @@ fn main() {
             let j = k % (nx + 1);
             let y = i as f64 / nx as f64;
             let x = j as f64 / ny as f64;
-            y*x
+            y+x*x
         })
         .collect();
         zero_mean(&mut f);
 
     // largest eigenvalue by the power method
-    for _iter in 0..20*nx.max(ny) {
+    for _iter in 0..30*nx.max(ny) {
         f = m.vec_mult(&f);
         zero_mean(&mut f);
         let nf: f64 = f.par_iter().map(|f| *f * *f).sum();
