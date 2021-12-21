@@ -230,7 +230,7 @@ impl Sky {
 
     /// recurse the above algorithm until each matrix is small enough
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
-        if nmax - nmin >= self.nrows / 8 {
+        if nmax - nmin >= self.nrows / 32 {
             let (n0, n1, _n2) = self.bisection_bfs(nmin, nmax);
             //println!("nmin={} nmax={} tr={:?}",nmin,nmax,(n0,n1,n2));
             self.bisection_iter(nmin, n0);
@@ -545,19 +545,21 @@ impl Sky {
             self.utab[j] = vec![0.; j - self.sky[j] + 1];
         }
 
-        // let mut nnz = 0;
-        // for i in 0..n {
-        //     nnz += self.utab[i].len()+self.ltab[i].len();
-        // }
-        // println!("nnz={}",nnz);
-
-        //println!("LU={:?}", self);
-
         for k in 0..self.coo.len() {
             let (i, j, v) = self.coo[k];
             let (ip, jp) = (self.inv_sigma[i], self.inv_sigma[j]);
             self.set_lu(ip, jp, v);
         }
+    }
+
+    pub fn get_nnz(&self) -> usize {
+        let mut nnz = 0;
+        let n = self.nrows;
+        for i in 0..n {
+            nnz += self.utab[i].len() + self.ltab[i].len();
+        }
+
+        nnz
     }
 
     /// Performs a LU decomposition on the sparse matrix

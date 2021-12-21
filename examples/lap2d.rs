@@ -10,8 +10,8 @@ fn main() {
     let lx = 4.;
     let ly = 2.;
 
-    let nx = 300;
-    let ny = 300;
+    let nx = 200;
+    let ny = 100;
 
     let dx = lx / nx as f64;
     let dy = ly / ny as f64;
@@ -67,12 +67,10 @@ fn main() {
     println!("solve...");
     let f0 = vec![1.; n];
     let zp = m.solve(f0.clone()).unwrap();
+    println!("nnz={}", m.get_nnz());
+
     let f = m.vec_mult(&zp);
-    let err: f64 = f
-        .iter()
-        .zip(f0.iter())
-        .map(|(f, f0)| (f - f0).abs())
-        .sum();
+    let err: f64 = f.iter().zip(f0.iter()).map(|(f, f0)| (f - f0).abs()).sum();
     println!("err={:e}", err / n as f64);
 
     println!("OK");
@@ -80,10 +78,10 @@ fn main() {
     // plot
 
     // println!("Trying to plot...");
-    m.plot(400);
-    // let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
-    // let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
-    // plotpy(xp, yp, zp);
+    m.plot(100);
+    let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
+    let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
+    plotpy(xp, yp, zp);
 }
 
 #[allow(dead_code)]
