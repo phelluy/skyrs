@@ -54,6 +54,8 @@ pub struct Sky {
     /// permutation
     sigma: Vec<usize>,
     inv_sigma: Vec<usize>,
+    /// subdomain indicator
+    color: Vec<f64>,
 }
 
 const WIDTH: usize = 12;
@@ -99,6 +101,7 @@ impl Sky {
         };
         let sigma: Vec<usize> = (0..nrows).collect();
         let inv_sigma = sigma.clone();
+        let color: Vec<f64> = vec![0.;nrows];
         let mut sky = Sky {
             coo,
             rowstart: vec![],
@@ -110,6 +113,7 @@ impl Sky {
             utab: vec![vec![]; ncols],
             sigma,
             inv_sigma,
+            color,
         };
         sky.compress();
         sky
@@ -141,31 +145,35 @@ impl Sky {
         //println!("init jindex={}",jindex);
         // middle index of the visited list
         let mid = nmin + (nmax - nmin) / 2;
+        println!("nmin={} nmax={} mid={}",nmin,nmax,mid);
         for loc in nmin..nmax {
             // if nodes are exhausted take the first one which is not
             // visited. This may happen because the sub-graphs
             // are not necessarily connected...
-            if permut.len() <= loc - nmin {
-                let rs = visited.iter().position(|visited| !visited);
-                let rs = rs.unwrap() + nmin;
-                permut.push(rs);
-                visited[rs - nmin] = true;
-            };
+            // if permut.len() <= loc - nmin {
+            //     let rs = visited.iter().position(|visited| !visited);
+            //     let rs = rs.unwrap() + nmin;
+            //     permut.push(rs);
+            //     visited[rs - nmin] = true;
+            // };
             let sloc = self.sigma[permut[loc - nmin]];
             for i in self.rowstart[sloc]..self.rowstart[sloc + 1] {
                 let (_, j, _) = self.coo[i];
                 let js = self.inv_sigma[j];
-                if js < ns && !visited[js - nmin] {
+                if js < ns + nmin && !visited[js - nmin] {
                     visited[js - nmin] = true;
                     permut.push(js);
                     let jindex = permut.len() - 1;
                     //println!("jindex={}",jindex);
+                    println!("loc={} jindex={}",loc,jindex);
                     if loc < mid && jindex >= mid - nmin {
                         cross[js - nmin] = true;
+                        println!("crossing loc={} jindex={}",loc,jindex);
                     }
                 }
             }
         }
+        println!("found {} cross points",cross.iter().filter(|t| **t).count());
         permut[mid - nmin..nmax - nmin].reverse();
         //println!("nmin={} nmax={} loc permut={:?}",nmin,nmax,permut);
         let n1 = permut.iter().map(|i| cross[i - nmin]).position(|v| v);
@@ -231,11 +239,14 @@ impl Sky {
 
     /// recurse the above algorithm until each matrix is small enough
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
-        if nmax - nmin >= self.nrows / 32 {
-            let (n0, n1, _n2) = self.bisection_bfs(nmin, nmax);
+        if nmax - nmin > self.nrows / 5  {
+            let (n0, n1, n2) = self.bisection_bfs(nmin, nmax);
             //println!("nmin={} nmax={} tr={:?}",nmin,nmax,(n0,n1,n2));
+            self.color[nmin..n0].iter_mut().for_each(|c| *c = 10 as f64); 
             self.bisection_iter(nmin, n0);
+            self.color[n0..n1].iter_mut().for_each(|c| *c = 20 as f64); 
             self.bisection_iter(n0, n1);
+            self.color[n1..n2].iter_mut().for_each(|c| *c = 30 as f64); 
         }
     }
 
@@ -323,6 +334,15 @@ impl Sky {
         // });
 
         plotpy(xp, yp, zp);
+    }
+
+    pub fn get_sigma(&self) -> Vec<f64> {
+        // let sigf = self.sigma.iter().map(|i| *i as f64).collect();
+        // sigf
+        let n = self.nrows;
+        let mut c = vec![0.;n];
+        self.color.iter().enumerate().for_each(|(k,col)| c[self.sigma[k]]=*col);
+        c
     }
 
     /// Full print of the LU decomposition

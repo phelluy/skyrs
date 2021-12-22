@@ -11,8 +11,8 @@ fn main() {
     ////////////////// Dirichlet ////////////////////
     let lx = 2.;
     let ly = 1.;
-    let nx = 100;
-    let ny = 50;
+    let nx = 50;
+    let ny = 2;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
 
@@ -43,7 +43,9 @@ fn main() {
 
     let xp: Vec<f64> = (0..nx + 1).map(|i| i as f64 * dx).collect();
     let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
-    plotpy(xp, yp, zp);
+    plotpy(xp.clone(), yp.clone(), zp);
+
+    plotpy(xp, yp, m.get_sigma());
 
     println!("Matrix plot...");
     m.plot(100);
