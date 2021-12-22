@@ -431,7 +431,7 @@ impl Sky {
         // lexicographic sorting for ensuring that identical entries
         // are near to each other
         self.coo
-            .par_sort_by(|(i1, j1, _v1), (i2, j2, _v2)| (i1, j1).cmp(&(i2, j2)));
+            .par_sort_unstable_by(|(i1, j1, _v1), (i2, j2, _v2)| (i1, j1).cmp(&(i2, j2)));
 
         let mut newcoo: Vec<(usize, usize, f64)> = vec![];
 
