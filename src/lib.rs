@@ -101,7 +101,7 @@ impl Sky {
         };
         let sigma: Vec<usize> = (0..nrows).collect();
         let inv_sigma = sigma.clone();
-        let color: Vec<f64> = vec![0.;nrows];
+        let color: Vec<f64> = vec![0.; nrows];
         let mut sky = Sky {
             coo,
             rowstart: vec![],
@@ -150,12 +150,12 @@ impl Sky {
             // if nodes are exhausted take the first one which is not
             // visited. This may happen because the sub-graphs
             // are not necessarily connected...
-            // if permut.len() <= loc - nmin {
-            //     let rs = visited.iter().position(|visited| !visited);
-            //     let rs = rs.unwrap() + nmin;
-            //     permut.push(rs);
-            //     visited[rs - nmin] = true;
-            // };
+            if permut.len() <= loc - nmin {
+                let rs = visited.iter().position(|visited| !visited);
+                let rs = rs.unwrap() + nmin;
+                permut.push(rs);
+                visited[rs - nmin] = true;
+            };
             let sloc = self.sigma[permut[loc - nmin]];
             for i in self.rowstart[sloc]..self.rowstart[sloc + 1] {
                 let (_, j, _) = self.coo[i];
@@ -239,14 +239,15 @@ impl Sky {
 
     /// recurse the above algorithm until each matrix is small enough
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
-        if nmax - nmin > self.nrows / 5  {
+        //if nmax - nmin > self.nrows / 16  {
+        if nmax - nmin > 16 {
             let (n0, n1, n2) = self.bisection_bfs(nmin, nmax);
             //println!("nmin={} nmax={} tr={:?}",nmin,nmax,(n0,n1,n2));
-            self.color[nmin..n0].iter_mut().for_each(|c| *c = 10 as f64); 
+            self.color[nmin..n0].iter_mut().for_each(|c| *c = 10 as f64);
             self.bisection_iter(nmin, n0);
-            self.color[n0..n1].iter_mut().for_each(|c| *c = 20 as f64); 
+            self.color[n0..n1].iter_mut().for_each(|c| *c = 20 as f64);
             self.bisection_iter(n0, n1);
-            self.color[n1..n2].iter_mut().for_each(|c| *c = 30 as f64); 
+            self.color[n1..n2].iter_mut().for_each(|c| *c = 30 as f64);
         }
     }
 
@@ -340,8 +341,11 @@ impl Sky {
         // let sigf = self.sigma.iter().map(|i| *i as f64).collect();
         // sigf
         let n = self.nrows;
-        let mut c = vec![0.;n];
-        self.color.iter().enumerate().for_each(|(k,col)| c[self.sigma[k]]=*col);
+        let mut c = vec![0.; n];
+        self.color
+            .iter()
+            .enumerate()
+            .for_each(|(k, col)| c[self.sigma[k]] = *col);
         c
     }
 

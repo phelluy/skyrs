@@ -11,8 +11,8 @@ fn main() {
     ////////////////// Dirichlet ////////////////////
     let lx = 2.;
     let ly = 1.;
-    let nx = 300;
-    let ny = 300;
+    let nx = 600;
+    let ny = 150;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
 
@@ -48,7 +48,7 @@ fn main() {
     plotpy(xp, yp, m.get_sigma());
 
     println!("Matrix plot...");
-    m.plot(100);
+    m.plot(200);
 
     /////////////// Neumann //////////////////////////////
 
@@ -73,7 +73,7 @@ fn main() {
     zero_mean(&mut f);
 
     // largest eigenvalue by the power method
-    for _iter in 0..30 * nx.max(ny) / 2 {
+    for _iter in 0..10 * nx.max(ny) / 2 {
         f = m.vec_mult(&f);
         zero_mean(&mut f);
         let nf: f64 = f.par_iter().map(|f| *f * *f).sum();
