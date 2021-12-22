@@ -64,7 +64,7 @@ const EXP: usize = 2;
 
 const FMT: (usize, usize, usize) = (WIDTH, PREC, EXP);
 
-/// Constant size formatter: useful for debug
+/// Constant size formatter: useful for debug.
 fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
     let width = fmt.0;
     let precision = fmt.1;
@@ -88,6 +88,9 @@ fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
 }
 
 impl Sky {
+    /// Construct a matrix from a coordinate (coo) array.
+    /// The coo array is compressed during the process:
+    /// the values with same indices are added together.
     pub fn new(coo: Vec<(usize, usize, f64)>) -> Sky {
         let imax = coo.iter().map(|(i, _, _)| i).max();
         let nrows = match imax {
@@ -118,34 +121,32 @@ impl Sky {
         sky.compress();
         sky
     }
-    /// reorder the nodes in the range nmin..nmax
-    /// first apply a bfs on this range
-    /// then split the nodes into two
-    /// put the middle nodes at the end
-    /// this is performed in the old permutation
-    /// there is a bug: this algorithm do not accept
-    /// an initial sigma which is not the identity...
+    /// Reorders the nodes in the range nmin..nmax:
+    /// first apply a BFS on this range,
+    /// then split the nodes into two and
+    /// put the middle nodes at the end.
+    /// Returns the starts of the three collections of nodes.
     pub fn bisection_bfs(&mut self, nmin: usize, nmax: usize) -> (usize, usize, usize) {
         let n = self.nrows;
         assert_eq!(n, self.ncols);
-        // the coo array must be sorted by row and by col
+        // size of the local permutation in sigma[nmin..nmax]
         let ns = nmax - nmin;
-        // for storing the permutation in sigma[nmin..nmax]
         let mut permut: Vec<usize> = vec![];
         // remember the locally visited nodes
         let mut visited: Vec<bool> = vec![false; ns];
         // array for finding the boundary nodes
         let mut cross: Vec<bool> = vec![false; ns];
-        // initial node: this must be a physical number
+        // initial node: this a logical node in nmin..nmax
         let start = nmin - nmin;
-        // the logical node is visited
+        // the starting node is visited
         visited[start] = true;
-        //permut.push(start);
-        permut.push(nmin);
-        //println!("init jindex={}",jindex);
-        // middle index of the visited list
+        permut.push(start + nmin);
+
+        // middle point for cutting the list
         let mid = nmin + (nmax - nmin) / 2;
-        //println!("nmin={} nmax={} mid={}",nmin,nmax,mid);
+
+        // now start a bfs on a possibly non-connected
+        // sub-graph
         for loc in nmin..nmax {
             // if nodes are exhausted take the first one which is not
             // visited. This may happen because the sub-graphs
@@ -157,31 +158,31 @@ impl Sky {
                 visited[rs - nmin] = true;
             };
             let sloc = self.sigma[permut[loc - nmin]];
+            // visit the nodes touching physical node sloc
             for i in self.rowstart[sloc]..self.rowstart[sloc + 1] {
-                let (_, j, _) = self.coo[i];
-                let js = self.inv_sigma[j];
+                let (_, j, _) = self.coo[i]; // j: physical index
+                let js = self.inv_sigma[j]; // js: logical index in nmin..nmax
                 if js < ns + nmin && !visited[js - nmin] {
                     visited[js - nmin] = true;
                     permut.push(js);
-                    let jindex = permut.len() - 1;
-                    //println!("jindex={}",jindex);
-                    //println!("loc={} jindex={}",loc,jindex);
-                    if loc < mid && jindex >= mid - nmin {
+                    let jindex = nmin + permut.len() - 1;
+                    // mark boundary nodes
+                    if loc < mid && jindex >= mid {
                         cross[js - nmin] = true;
-                        //println!("crossing loc={} jindex={}",loc,jindex);
                     }
                 }
             }
         }
-        //println!("found {} cross points",cross.iter().filter(|t| **t).count());
+        // reverse the end of the list and compute the
+        // sub-list boundaries
         permut[mid - nmin..nmax - nmin].reverse();
-        //println!("nmin={} nmax={} loc permut={:?}",nmin,nmax,permut);
         let n1 = permut.iter().map(|i| cross[i - nmin]).position(|v| v);
         let n1 = match n1 {
             Some(k) => k + nmin,
             None => nmax,
         };
-        //println!
+
+        // update the global permutation
         for i in nmin..nmax {
             permut[i - nmin] = self.sigma[permut[i - nmin]];
         }
@@ -192,38 +193,38 @@ impl Sky {
         for i in nmin..nmax {
             self.inv_sigma[self.sigma[i]] = i;
         }
-
-        // let mut end:Vec<usize> = self.sigma[nmax..n].iter().map(|s| *s).collect();
-        // permut.append(&mut end);
-        //println!("permut {:?}", permut);
-        //panic!();
-        //println!("cross {:?}", cross);
-        //let it:Vec<bool> = permut.iter().map(|i| cross[*i]).collect();
-        //println!("cross bis {:?}", it);
-        //println!("visited {:?}", visited);
         let n0 = mid;
         let n2 = nmax;
-        //println!("nmin={} nmax={} n0={} n1={} n2={}",nmin,nmax,n0,n1,n2);
-        //panic!();
-        //self.set_permut(self.sigma.clone());
         (n0, n1, n2)
     }
 
+    /// Recurse the above algorithm until each matrix is small enough.
+    pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
+        let n = self.nrows;
+        // estimate of the final domains
+        let ncpus = 8;
+        if nmax - nmin > n / ncpus {
+            let (n0, n1, n2) = self.bisection_bfs(nmin, nmax);
+            self.color[nmin..n0].iter_mut().for_each(|c| *c = nmin as f64);
+            self.color[n0..n1].iter_mut().for_each(|c| *c = n0 as f64);
+            self.color[n1..n2].iter_mut().for_each(|c| *c = n1 as f64);
+            self.bisection_iter(nmin, n0);
+            self.bisection_iter(n0, n1);
+        }
+    }
+
+    /// Renumbers the nodes with a Breadth First Search (BFS).
+    /// The matrix graph is supposed to be connected.
     pub fn bfs_renumber(&mut self, start: usize) {
         let n = self.nrows;
         assert_eq!(n, self.ncols);
         let mut permut: Vec<usize> = vec![];
         // remember the locally visited nodes
         let mut visited: Vec<bool> = vec![false; n];
-        // array for finding the boundary nodes
-        // initial node: this must be a physical number
-        // the logical node is visited
         visited[start] = true;
-        //permut.push(start);
         permut.push(start);
 
         for loc in 0..n {
-            // the mesh is supposed to be connected
             for i in self.rowstart[loc]..self.rowstart[loc + 1] {
                 let (_, j, _) = self.coo[i];
                 if !visited[j] {
@@ -232,25 +233,13 @@ impl Sky {
                 }
             }
         }
+        assert!(permut.len() == n, "The graph matrix is not connected.");
         permut[0..n].reverse();
-        //println!("permut={:?}",permut);
         self.set_permut(permut);
     }
 
-    /// recurse the above algorithm until each matrix is small enough
-    pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
-        //if nmax - nmin > self.nrows / 16  {
-        if nmax - nmin > 16 {
-            let (n0, n1, n2) = self.bisection_bfs(nmin, nmax);
-            //println!("nmin={} nmax={} tr={:?}",nmin,nmax,(n0,n1,n2));
-            self.color[nmin..n0].iter_mut().for_each(|c| *c = 10 as f64);
-            self.bisection_iter(nmin, n0);
-            self.color[n0..n1].iter_mut().for_each(|c| *c = 20 as f64);
-            self.bisection_iter(n0, n1);
-            self.color[n1..n2].iter_mut().for_each(|c| *c = 30 as f64);
-        }
-    }
-
+    /// Define a new nodes permutation.
+    /// This invalidates the LU decomposition
     pub fn set_permut(&mut self, permut: Vec<usize>) {
         self.sigma = permut;
         // checks
@@ -273,6 +262,7 @@ impl Sky {
     }
 
     /// Full print of the coo matrix
+    /// Don't use this on big matrices !
     #[allow(dead_code)]
     pub fn print_coo(&self) {
         // first search the size of the matrix
@@ -297,11 +287,12 @@ impl Sky {
         }
     }
 
-    // plot the non zero pattern of the matrix
+    /// Plot the sparsity pattern of the matrix on 
+    /// a picture with np x np pixels.
+    /// Each pixel represent a non-zeros count.
     pub fn plot(&self, np: usize) {
         let n = self.ncols;
         assert_eq!(n, self.nrows);
-        //let np = n;
         let npmax = np * np;
         let xp: Vec<f64> = (0..np).map(|i| i as f64 * n as f64 / np as f64).collect();
         let yp: Vec<f64> = (0..np)
@@ -320,26 +311,12 @@ impl Sky {
                 zp[ip * np + jp] += 1.;
             }
         }
-        // self.coo.iter().for_each(|(i, j, _v)| {
-        //     let is = self.inv_sigma[*i];
-        //     let js = self.inv_sigma[*j];
-        //     let ip = (is * np) / n;
-        //     let jp = (js * np) / n;
-        //     zp[ip * np + jp] += if is > js && js >= self.prof[is] {
-        //         1.
-        //     } else if is <= js && is >= self.sky[js] {
-        //         1.
-        //     } else {
-        //         0.
-        //     };
-        // });
-
         plotpy(xp, yp, zp);
     }
 
+    /// Get an array of colored nodes.
     pub fn get_sigma(&self) -> Vec<f64> {
-        // let sigf = self.sigma.iter().map(|i| *i as f64).collect();
-        // sigf
+
         let n = self.nrows;
         let mut c = vec![0.; n];
         self.color
@@ -349,7 +326,7 @@ impl Sky {
         c
     }
 
-    /// Full print of the LU decomposition
+    /// Fully prints the LU decomposition.
     #[allow(dead_code)]
     pub fn print_lu(&self) {
         println!("L-I+U=");
@@ -362,7 +339,7 @@ impl Sky {
         }
     }
 
-    /// Return the value at position (i,j) in L-I+U
+    /// Returns the value at position (i,j) in L-I+U.
     fn get_lu(&self, i: usize, j: usize) -> f64 {
         assert!(i < self.nrows);
         assert!(j < self.ncols);
@@ -374,20 +351,6 @@ impl Sky {
             0.
         }
     }
-
-    // Return one if (i,j) is in the profile or the skyline
-    // and zero otherwise
-    // fn get_struct(&self, i: usize, j: usize) -> f64 {
-    //     assert!(i < self.nrows);
-    //     assert!(j < self.ncols);
-    //     if i > j && j >= self.prof[i] {
-    //         1.
-    //     } else if i <= j && i >= self.sky[j] {
-    //         1.
-    //     } else {
-    //         0.
-    //     }
-    // }
 
     /// Return the value at position (i,j) in L-I+U
     /// Fail if (i,j) is not in the profile or the skyline
@@ -458,7 +421,7 @@ impl Sky {
         self.utab[j][i - self.sky[j]] = val;
     }
 
-    /// Sort the coo array and combine values for the same (i,j) indices
+    /// Sort the coo array and combine values with the same (i,j) indices
     pub fn compress(&mut self) {
         if self.coo.is_empty() {
             return;

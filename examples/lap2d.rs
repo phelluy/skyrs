@@ -73,7 +73,7 @@ fn main() {
     zero_mean(&mut f);
 
     // largest eigenvalue by the power method
-    for _iter in 0..10 * nx.max(ny) / 2 {
+    for _iter in 0..nx.max(ny) {
         f = m.vec_mult(&f);
         zero_mean(&mut f);
         let nf: f64 = f.par_iter().map(|f| *f * *f).sum();
