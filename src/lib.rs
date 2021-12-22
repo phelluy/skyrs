@@ -145,7 +145,7 @@ impl Sky {
         //println!("init jindex={}",jindex);
         // middle index of the visited list
         let mid = nmin + (nmax - nmin) / 2;
-        println!("nmin={} nmax={} mid={}",nmin,nmax,mid);
+        //println!("nmin={} nmax={} mid={}",nmin,nmax,mid);
         for loc in nmin..nmax {
             // if nodes are exhausted take the first one which is not
             // visited. This may happen because the sub-graphs
@@ -165,15 +165,15 @@ impl Sky {
                     permut.push(js);
                     let jindex = permut.len() - 1;
                     //println!("jindex={}",jindex);
-                    println!("loc={} jindex={}",loc,jindex);
+                    //println!("loc={} jindex={}",loc,jindex);
                     if loc < mid && jindex >= mid - nmin {
                         cross[js - nmin] = true;
-                        println!("crossing loc={} jindex={}",loc,jindex);
+                        //println!("crossing loc={} jindex={}",loc,jindex);
                     }
                 }
             }
         }
-        println!("found {} cross points",cross.iter().filter(|t| **t).count());
+        //println!("found {} cross points",cross.iter().filter(|t| **t).count());
         permut[mid - nmin..nmax - nmin].reverse();
         //println!("nmin={} nmax={} loc permut={:?}",nmin,nmax,permut);
         let n1 = permut.iter().map(|i| cross[i - nmin]).position(|v| v);
