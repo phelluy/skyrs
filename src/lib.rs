@@ -88,7 +88,7 @@ fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
 }
 
 impl Sky {
-    /// Construct a matrix from a coordinate (coo) array.
+    /// Constructs a matrix from a coordinate (coo) array.
     /// The coo array is compressed during the process:
     /// the values with same indices are added together.
     pub fn new(coo: Vec<(usize, usize, f64)>) -> Sky {
@@ -123,8 +123,8 @@ impl Sky {
     }
     /// Reorders the nodes in the range nmin..nmax:
     /// first apply a BFS on this range,
-    /// then split the nodes into two and
-    /// put the middle nodes at the end.
+    /// then splits the nodes into two and
+    /// puts the middle nodes at the end.
     /// Returns the starts of the three collections of nodes.
     pub fn bisection_bfs(&mut self, nmin: usize, nmax: usize) -> (usize, usize, usize) {
         let n = self.nrows;
@@ -198,7 +198,7 @@ impl Sky {
         (n0, n1, n2)
     }
 
-    /// Recurse the above algorithm until each matrix is small enough.
+    /// Recurses the above algorithm until each matrix is small enough.
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
@@ -238,8 +238,8 @@ impl Sky {
         self.set_permut(permut);
     }
 
-    /// Define a new nodes permutation.
-    /// This invalidates the LU decomposition
+    /// Defines a new nodes permutation.
+    /// This invalidates the LU decomposition.
     pub fn set_permut(&mut self, permut: Vec<usize>) {
         self.sigma = permut;
         // checks
@@ -261,7 +261,7 @@ impl Sky {
         self.utab = vec![vec![]; n];
     }
 
-    /// Full print of the coo matrix
+    /// Full print of the coo matrix.
     /// Don't use this on big matrices !
     #[allow(dead_code)]
     pub fn print_coo(&self) {
@@ -287,9 +287,9 @@ impl Sky {
         }
     }
 
-    /// Plot the sparsity pattern of the matrix on 
+    /// Plots the sparsity pattern of the matrix on 
     /// a picture with np x np pixels.
-    /// Each pixel represent a non-zeros count.
+    /// Each pixel represents a non-zeros count.
     pub fn plot(&self, np: usize) {
         let n = self.ncols;
         assert_eq!(n, self.nrows);
@@ -314,7 +314,8 @@ impl Sky {
         plotpy(xp, yp, zp);
     }
 
-    /// Get an array of colored nodes.
+    /// Gets an array of colored nodes.
+    /// Used for debug.
     pub fn get_sigma(&self) -> Vec<f64> {
 
         let n = self.nrows;
@@ -352,9 +353,9 @@ impl Sky {
         }
     }
 
-    /// Return the value at position (i,j) in L-I+U
-    /// Fail if (i,j) is not in the profile or the skyline
-    /// Used for debug
+    /// Returns the value at position (i,j) in L-I+U.
+    /// Fails if (i,j) is not in the profile or the skyline.
+    /// Used for debug.
     #[allow(dead_code)]
     fn get_lu_try(&self, i: usize, j: usize) -> f64 {
         assert!(i < self.nrows);
@@ -368,8 +369,8 @@ impl Sky {
         }
     }
 
-    /// Set the value (i,j) in L-I+U
-    /// Fail if (i,j) is not in the skyline or in the profile
+    /// Sets the value (i,j) in L-I+U.
+    /// Fails if (i,j) is not in the skyline or in the profile.
     fn set_lu(&mut self, i: usize, j: usize, v: f64) {
         if i > j {
             self.set_l(i, j, v);
@@ -378,8 +379,8 @@ impl Sky {
         }
     }
 
-    /// Set the value (i,j) in L-I+U
-    /// Do nothing if (i,j) is not in the skyline or in the profile
+    /// Sets the value (i,j) in L-I+U.
+    /// Does nothing if (i,j) is not in the skyline or in the profile.
     #[allow(dead_code)]
     fn set_lu_try(&mut self, i: usize, j: usize, v: f64) {
         if i > j && j >= self.prof[i] {
@@ -391,37 +392,37 @@ impl Sky {
         }
     }
 
-    /// Get the (i,j) value in L
-    /// Fail if (i,j) is not in the profile
+    /// Gets the (i,j) value in L.
+    /// Fails if (i,j) is not in the profile
     /// or if i == j
     #[inline(always)] // probably useless, but...
     fn get_l(&self, i: usize, j: usize) -> f64 {
         self.ltab[i][j - self.prof[i]]
     }
 
-    /// Get the (i,j) value in U
-    /// Fail if (i,j) is not in the skyline
+    /// Get the (i,j) value in U.
+    /// Fails if (i,j) is not in the skyline.
     #[inline(always)] // probably useless, but...
     fn get_u(&self, i: usize, j: usize) -> f64 {
         self.utab[j][i - self.sky[j]]
     }
 
-    /// Set the (i,j) value in L
-    /// Fail if (i,j) is not in the profile
+    /// Sets the (i,j) value in L.
+    /// Fails if (i,j) is not in the profile
     /// or if i == j
     #[inline(always)] // probably useless, but...
     fn set_l(&mut self, i: usize, j: usize, val: f64) {
         self.ltab[i][j - self.prof[i]] = val;
     }
 
-    /// Set the (i,j) value in U
-    /// Fail if (i,j) is not in the skyline
+    /// Sets the (i,j) value in U.
+    /// Fails if (i,j) is not in the skyline.
     #[inline(always)] // probably useless, but...
     fn set_u(&mut self, i: usize, j: usize, val: f64) {
         self.utab[j][i - self.sky[j]] = val;
     }
 
-    /// Sort the coo array and combine values with the same (i,j) indices
+    /// Sorts the coo array and combines values with the same (i,j) indices.
     pub fn compress(&mut self) {
         if self.coo.is_empty() {
             return;
@@ -481,8 +482,8 @@ impl Sky {
         // panic!();
     }
 
-    /// Matrix vector product using the coo array
-    /// sequential version
+    /// Matrix vector product using the coo array.
+    /// Sequential version.
     pub fn vec_mult_slow(&self, u: &Vec<f64>) -> Vec<f64> {
         let mut v: Vec<f64> = vec![0.; self.nrows];
         if u.len() != self.ncols {
@@ -498,8 +499,8 @@ impl Sky {
         v
     }
 
-    /// Matrix vector product using the coo array
-    /// parallel version
+    /// Matrix vector product using the coo array.
+    /// Parallel version.
     pub fn vec_mult(&self, u: &Vec<f64>) -> Vec<f64> {
         let mut v: Vec<f64> = vec![0.; self.nrows];
         if u.len() != self.ncols {
@@ -540,7 +541,6 @@ impl Sky {
         //             });
         //     });
         // });
-
         v.par_iter_mut().enumerate().for_each(|(i, v)| {
             self.coo[self.rowstart[i]..self.rowstart[i + 1]]
                 .iter()
@@ -551,8 +551,7 @@ impl Sky {
         v
     }
 
-    /// Convert the coo array to the skyline format internally
-    /// The coo array is compressed before the construction
+    /// Converts the coo array to the skyline format internally.
     fn coo_to_sky(&mut self) {
         assert_eq!(self.nrows, self.ncols);
         let n = self.nrows;
@@ -564,9 +563,6 @@ impl Sky {
         self.coo.iter().for_each(|(i, j, _v)| {
             let ip = self.inv_sigma[*i];
             let jp = self.inv_sigma[*j];
-            // println!("{:?}",self.sigma);
-            // println!("{:?}",self.inv_sigma);
-            //panic!();
             if jp > ip {
                 sky[jp] = sky[jp].min(ip);
             } else {
@@ -594,19 +590,19 @@ impl Sky {
         }
     }
 
+    /// Returns the number of non-zero stored values.
     pub fn get_nnz(&self) -> usize {
         let mut nnz = 0;
         let n = self.nrows;
         for i in 0..n {
             nnz += self.utab[i].len() + self.ltab[i].len();
         }
-
         nnz
     }
 
-    /// Performs a LU decomposition on the sparse matrix
-    /// with the Doolittle algorithm
-    /// Version with a for loop for debug
+    /// Performs an LU decomposition on the sparse matrix
+    /// with the Doolittle algorithm.
+    /// Version with a for loop for debug.
     #[allow(dead_code)]
     fn factolu_noscal(&mut self) -> Result<(), ()> {
         self.coo_to_sky();
@@ -635,7 +631,8 @@ impl Sky {
     }
 
     /// Optimized scalar products of a sub-row of L
-    /// with a sub-column of U (used in the L triangulation)
+    /// with a sub-column of U (used in the L triangulation).
+    /// Uses a BLAS library (which has to be installed on the system).
     #[inline(always)] // probably useless, but...
     fn scall(&self, i: usize, j: usize) -> f64 {
         let pmin = self.prof[i].max(self.sky[j]);
@@ -657,8 +654,9 @@ impl Sky {
         scal
     }
 
-    /// Optimized scalar products of a sub-row of L
-    /// with a sub-column of U (used in the U triangulation)
+    /// Optimized scalar products of a sub-row of L.
+    /// with a sub-column of U (used in the U triangulation).
+    /// Uses a BLAS library (which has to be installed on the system).
     #[inline(always)] // probably useless, but...
     fn scalu(&self, i: usize, j: usize) -> f64 {
         let pmin = self.prof[i].max(self.sky[j]);
@@ -680,8 +678,8 @@ impl Sky {
         scal
     }
 
-    /// Performs a LU decomposition on the sparse matrix
-    /// with the Doolittle algorithm
+    /// Performs an LU decomposition on the sparse matrix
+    /// with the Doolittle algorithm.
     pub fn factolu(&mut self) -> Result<(), String> {
         //self.coo_to_sky();
         let n = self.nrows;
@@ -704,8 +702,8 @@ impl Sky {
         }
         Ok(())
     }
-    /// Triangular solves
-    /// Must be called after the LU decomposition !
+    /// Triangular solves.
+    /// Calls the LU decomposition if this is not yet done.
     pub fn solve(&mut self, mut bp: Vec<f64>) -> Result<Vec<f64>, String> {
         let m = self.prof.len();
         if m == 0 {
@@ -735,8 +733,8 @@ impl Sky {
     }
 
     /// Performs a LU decomposition on the full matrix
-    /// with the Doolittle algorithm
-    /// Not efficient: used only for debug
+    /// with the Doolittle algorithm.
+    /// Not efficient: used only for debug.
     #[allow(dead_code)]
     fn factolu_full(&mut self) -> Result<(), ()> {
         self.coo_to_sky();
@@ -760,8 +758,8 @@ impl Sky {
         }
         Ok(())
     }
-    /// Triangular solves with the full structure
-    /// Only here for debug
+    /// Triangular solves with the full structure.
+    /// Only here for debug.
     #[allow(dead_code)]
     fn solve_slow(&self, mut b: Vec<f64>) -> Vec<f64> {
         // descente
@@ -780,9 +778,9 @@ impl Sky {
         }
         b
     }
-    /// Perform the LU decomposition with the Gauss method
-    /// on the full matrix
-    /// Not efficient: only for debug purpose
+    /// Performs the LU decomposition with the Gauss method
+    /// on the full matrix.
+    /// Not efficient: only for debug purpose.
     #[allow(dead_code)]
     fn factolu_gauss(&mut self) -> Result<(), ()> {
         self.coo_to_sky();
@@ -849,7 +847,7 @@ pub fn plu_facto(a: &mut Vec<Vec<f64>>, sigma: &mut Vec<usize>) {
     }
 }
 
-/// Inplace Doolittle LU decomposition on a full matrix
+/// Inplace Doolittle LU decomposition on a full matrix.
 pub fn doolittle_lu(a: &mut Vec<Vec<f64>>) {
     let n = a.len();
     a.iter().for_each(|row| assert_eq!(row.len(), n));
@@ -871,7 +869,7 @@ pub fn doolittle_lu(a: &mut Vec<Vec<f64>>) {
     }
 }
 
-/// Plot a 2D data set using matplotlib
+/// Plots a 2D data set using matplotlib.
 fn plotpy(xp: Vec<f64>, yp: Vec<f64>, zp: Vec<f64>) {
     use std::fs::File;
     use std::io::BufWriter;
@@ -899,7 +897,7 @@ fn plotpy(xp: Vec<f64>, yp: Vec<f64>, zp: Vec<f64>) {
         .expect("Plot failed: you need Python3 and Matplotlib in your PATH.");
 }
 
-/// Permutation algorithm used by gauss_solve
+/// Permutation algorithm used by gauss_solve.
 fn gauss_permute(x: &mut Vec<f64>, sigma: &Vec<usize>) {
     let n = sigma.len();
     assert_eq!(n, x.len());
@@ -912,7 +910,7 @@ fn gauss_permute(x: &mut Vec<f64>, sigma: &Vec<usize>) {
     }
 }
 
-/// Triangular solves
+/// Triangular solves.
 /// plu_solve must be called first
 /// and this has to be checked by the user before !
 pub fn gauss_solve(a: &Vec<Vec<f64>>, sigma: &Vec<usize>, x: &mut Vec<f64>) {
@@ -938,7 +936,7 @@ pub fn gauss_solve(a: &Vec<Vec<f64>>, sigma: &Vec<usize>, x: &mut Vec<f64>) {
 
 // unit tests start
 
-/// Test for small special matrices
+/// Test for small special matrices.
 #[test]
 fn empty() {
     let coo: Vec<(usize, usize, f64)> = vec![];
