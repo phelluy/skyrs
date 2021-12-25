@@ -287,7 +287,8 @@ impl Sky {
         let n = self.nrows;
         // estimate of the final domains
         let ncpus = 8;
-        if nmax - nmin > n / ncpus {
+        //if nmax - nmin > n / ncpus {
+        if nmax - nmin > 8 {
             let (n0, n1, n2) = self.bisection_bfs(nmin, nmax);
             self.color[nmin..n0]
                 .iter_mut()
@@ -643,7 +644,7 @@ impl Sky {
     }
 
     /// Converts the coo array to the skyline format internally.
-    fn coo_to_sky(&mut self) {
+    pub fn coo_to_sky(&mut self) {
         assert_eq!(self.nrows, self.ncols);
         let n = self.nrows;
         if n == 0 {
@@ -784,11 +785,10 @@ impl Sky {
         self.coo_to_sky();
         // self.plot(200);
         // panic!();
-        let (mut ltab0,mut ltab1) = self.ltab.split_at_mut(n0);
-        let (mut utab0,mut utab1) = self.utab.split_at_mut(n0);  
+        let (mut ltab0, mut ltab1) = self.ltab.split_at_mut(n0);
+        let (mut utab0, mut utab1) = self.utab.split_at_mut(n0);
         let prof = self.prof.clone();
         let sky = self.sky.clone();
-          
         rayon::join(
             || {
                 let kmin = 0;

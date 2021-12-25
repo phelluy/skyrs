@@ -12,7 +12,7 @@ fn main() {
     let lx = 2.;
     let ly = 1.;
     let nx = 600;
-    let ny = 600;
+    let ny = 150;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
 
@@ -24,7 +24,10 @@ fn main() {
     println!("Compress...");
     let mut m = skyrs::Sky::new(vecval);
     println!("Renumbering...");
-    //m.bisection_iter(0, n);
+    // m.bisection_iter(0, n);
+    // m.coo_to_sky();
+    // m.plot(400);
+    // panic!();
     //m.bfs_renumber(0);
 
     println!("Solving...");
