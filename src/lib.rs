@@ -158,7 +158,6 @@ pub fn factolu_par(
             lkj -= scall(k, j, prof, ltab, sky, utab);
             lkj /= utab[j][j - sky[j]];
             ltab[k][j - prof[k]] = lkj;
-            //set_l(k, j, lkj);
         }
         for i in sky[k].max(1)..k + 1 {
             let mut uik = utab[k][i - sky[k]];
