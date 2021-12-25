@@ -87,6 +87,87 @@ fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
     }
 }
 
+/// Optimized scalar products of a sub-row of L
+/// with a sub-column of U (used in the L triangulation).
+/// Uses a BLAS library (which has to be installed on the system).
+/// Functional version
+#[inline(always)] // probably useless, but...
+fn scall(
+    i: usize,
+    j: usize,
+    prof: &[usize],
+    ltab: &[Vec<f64>],
+    sky: &[usize],
+    utab: &[Vec<f64>],
+) -> f64 {
+    let pmin = prof[i].max(sky[j]);
+    let (lmin, lmax) = (pmin - prof[i], j - prof[i]);
+    let (umin, _umax) = (pmin - sky[j], j - sky[j]);
+    let size = (lmax - lmin) as i32;
+    let pl = &(ltab[i][lmin]);
+    let pu = &(utab[j][umin]);
+    let scal = if size > 0 {
+        unsafe { sysblas::cblas_ddot(size, pl, 1, pu, 1) }
+    } else {
+        0.
+    };
+    scal
+}
+
+/// Optimized scalar products of a sub-row of L.
+/// with a sub-column of U (used in the U triangulation).
+/// Uses a BLAS library (which has to be installed on the system).
+#[inline(always)] // probably useless, but...
+fn scalu(
+    i: usize,
+    j: usize,
+    prof: &[usize],
+    ltab: &[Vec<f64>],
+    sky: &[usize],
+    utab: &[Vec<f64>],
+) -> f64 {
+    let pmin = prof[i].max(sky[j]);
+    let (lmin, lmax) = (pmin - prof[i], i - prof[i]);
+    let (umin, _umax) = (pmin - sky[j], i - sky[j]);
+    let size = (lmax - lmin) as i32;
+    let scal = if size > 0 {
+        let pl = &(ltab[i][lmin]);
+        let pu = &(utab[j][umin]);
+        unsafe { sysblas::cblas_ddot(size, pu, 1, pl, 1) }
+    } else {
+        0.
+    };
+    scal
+}
+
+/// Performs an LU decomposition on a range of
+/// rows/columns of a sparse matrix structure
+/// with the Doolittle algorithm. Functional
+/// version without test on vanishing pivot
+pub fn factolu_par(
+    kmin: usize,
+    kmax: usize,
+    prof: &[usize],
+    ltab: &mut [Vec<f64>],
+    sky: &[usize],
+    utab: &mut [Vec<f64>],
+) {
+    for k in kmin + 1..kmax {
+        for j in prof[k]..k {
+            let mut lkj = ltab[k][j - prof[k]];
+            lkj -= scall(k, j, prof, ltab, sky, utab);
+            lkj /= utab[j][j - sky[j]];
+            ltab[k][j - prof[k]] = lkj;
+            //set_l(k, j, lkj);
+        }
+        for i in sky[k].max(1)..k + 1 {
+            let mut uik = utab[k][i - sky[k]];
+            uik -= scalu(i, k, prof, ltab, sky, utab);
+            utab[k][i - sky[k]] = uik;
+        }
+    }
+}
+
 impl Sky {
     /// Constructs a matrix from a coordinate (coo) array.
     /// The coo array is compressed during the process:
@@ -205,7 +286,9 @@ impl Sky {
         let ncpus = 8;
         if nmax - nmin > n / ncpus {
             let (n0, n1, n2) = self.bisection_bfs(nmin, nmax);
-            self.color[nmin..n0].iter_mut().for_each(|c| *c = nmin as f64);
+            self.color[nmin..n0]
+                .iter_mut()
+                .for_each(|c| *c = nmin as f64);
             self.color[n0..n1].iter_mut().for_each(|c| *c = n0 as f64);
             self.color[n1..n2].iter_mut().for_each(|c| *c = n1 as f64);
             self.bisection_iter(nmin, n0);
@@ -287,7 +370,7 @@ impl Sky {
         }
     }
 
-    /// Plots the sparsity pattern of the matrix on 
+    /// Plots the sparsity pattern of the matrix on
     /// a picture with np x np pixels.
     /// Each pixel represents a non-zeros count.
     pub fn plot(&self, np: usize) {
@@ -317,7 +400,6 @@ impl Sky {
     /// Gets an array of colored nodes.
     /// Used for debug.
     pub fn get_sigma(&self) -> Vec<f64> {
-
         let n = self.nrows;
         let mut c = vec![0.; n];
         self.color
@@ -678,6 +760,22 @@ impl Sky {
         scal
     }
 
+    /// Performs an LU decomposition on the sparse matrix structure
+    /// with the Doolittle algorithm. Parallel version without
+    /// test on vanishing pivot.
+    pub fn factolu_par(&mut self) {
+        //self.coo_to_sky();
+        let n = self.nrows;
+        factolu_par(
+            0,
+            n,
+            self.prof.as_slice(),
+            self.ltab.as_mut_slice(),
+            self.sky.as_slice(),
+            self.utab.as_mut_slice(),
+        );
+    }
+
     /// Performs an LU decomposition on the sparse matrix
     /// with the Doolittle algorithm.
     pub fn factolu(&mut self) -> Result<(), String> {
@@ -708,7 +806,7 @@ impl Sky {
         let m = self.prof.len();
         if m == 0 {
             self.coo_to_sky();
-            self.factolu()?;
+            self.factolu_par();
         }
         let m = self.prof.len();
         let mut b: Vec<f64> = (0..m).map(|i| bp[self.sigma[i]]).collect();
