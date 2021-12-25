@@ -1126,7 +1126,8 @@ fn small_matrix() {
 
     sky.print_lu();
 
-    sky.factolu().unwrap();
+    //sky.factolu().unwrap();
+    sky.factolu_par();
 
     println!("sky={:?}", sky);
 
