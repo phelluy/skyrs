@@ -95,6 +95,7 @@ fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
 fn scall(
     i: usize,
     j: usize,
+    kmin: usize,  // décalage dans utab et ltab
     prof: &[usize],
     ltab: &[Vec<f64>],
     sky: &[usize],
@@ -104,8 +105,8 @@ fn scall(
     let (lmin, lmax) = (pmin - prof[i], j - prof[i]);
     let (umin, _umax) = (pmin - sky[j], j - sky[j]);
     let size = (lmax - lmin) as i32;
-    let pl = &(ltab[i][lmin]);
-    let pu = &(utab[j][umin]);
+    let pl = &(ltab[i-kmin][lmin]);
+    let pu = &(utab[j-kmin][umin]);
     let scal = if size > 0 {
         unsafe { sysblas::cblas_ddot(size, pl, 1, pu, 1) }
     } else {
@@ -121,6 +122,7 @@ fn scall(
 fn scalu(
     i: usize,
     j: usize,
+    kmin: usize,  // décalage dans utab et ltab
     prof: &[usize],
     ltab: &[Vec<f64>],
     sky: &[usize],
@@ -131,8 +133,8 @@ fn scalu(
     let (umin, _umax) = (pmin - sky[j], i - sky[j]);
     let size = (lmax - lmin) as i32;
     let scal = if size > 0 {
-        let pl = &(ltab[i][lmin]);
-        let pu = &(utab[j][umin]);
+        let pl = &(ltab[i-kmin][lmin]);
+        let pu = &(utab[j-kmin][umin]);
         unsafe { sysblas::cblas_ddot(size, pu, 1, pl, 1) }
     } else {
         0.
@@ -155,13 +157,13 @@ pub fn factolu_par(
     for k in kmin + 1..kmax {
         for j in prof[k]..k {
             let mut lkj = ltab[k][j - prof[k]];
-            lkj -= scall(k, j, prof, ltab, sky, utab);
+            lkj -= scall(k, j, kmin, prof, ltab, sky, utab);
             lkj /= utab[j][j - sky[j]];
             ltab[k][j - prof[k]] = lkj;
         }
         for i in sky[k].max(1)..k + 1 {
             let mut uik = utab[k][i - sky[k]];
-            uik -= scalu(i, k, prof, ltab, sky, utab);
+            uik -= scalu(i, k, kmin, prof, ltab, sky, utab);
             utab[k][i - sky[k]] = uik;
         }
     }
@@ -765,21 +767,25 @@ impl Sky {
     pub fn factolu_par(&mut self) {
         //self.coo_to_sky();
         let n = self.nrows;
+        let kmin = 0;
+        let kmax = n;
         factolu_par(
-            0,
-            n/2,
+            kmin,
+            kmax,
             self.prof.as_slice(),
-            self.ltab.as_mut_slice(),
+            &mut self.ltab[kmin..kmax],
             self.sky.as_slice(),
-            self.utab.as_mut_slice(),
+            &mut self.utab[kmin..kmax],
         );
+        let kmin = n/2;
+        let kmax = n;
         factolu_par(
-            n/2,
-            n,
+            kmin,
+            kmax,
             self.prof.as_slice(),
-            self.ltab.as_mut_slice(),
+            &mut self.ltab[kmin..kmax],
             self.sky.as_slice(),
-            self.utab.as_mut_slice(),
+            &mut self.utab[kmin..kmax],
         );
     }
 
