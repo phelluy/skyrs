@@ -156,7 +156,7 @@ pub fn factolu_par(
     sky: &[usize],
     utab: &mut [Vec<f64>],
 ) {
-    for k in kmin + 1..kmax {
+    for k in kmin..kmax {
         for j in prof[k]..k {
             let mut lkj = ltab[k - kmem][j - prof[k]];
             lkj -= scall(k, j, kmem, prof, ltab, sky, utab);
@@ -790,13 +790,15 @@ impl Sky {
             self.sky.as_slice(),
             &mut self.utab[kmem..kmax],
         );
+        // let kmin = n0;
+        // let kmax = n1;
         let kmin = n0;
         let kmax = n1;
         let kmem = kmin;
         factolu_par(
             kmin,
             kmax,
-            kmin,
+            kmem,
             self.prof.as_slice(),
             &mut self.ltab[kmem..kmax],
             self.sky.as_slice(),
