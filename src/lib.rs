@@ -768,6 +768,14 @@ impl Sky {
         let n = self.nrows;
         factolu_par(
             0,
+            n/2,
+            self.prof.as_slice(),
+            self.ltab.as_mut_slice(),
+            self.sky.as_slice(),
+            self.utab.as_mut_slice(),
+        );
+        factolu_par(
+            n/2,
             n,
             self.prof.as_slice(),
             self.ltab.as_mut_slice(),
