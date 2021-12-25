@@ -412,6 +412,12 @@ impl Sky {
         c
     }
 
+    /// Gets the inverse permutation.
+    /// Used for debug.
+    pub fn get_inv_sigma(&self) -> Vec<usize> {
+        self.inv_sigma.clone()
+    }
+
     /// Fully prints the LU decomposition.
     #[allow(dead_code)]
     pub fn print_lu(&self) {
@@ -774,46 +780,60 @@ impl Sky {
         //self.coo_to_sky();
         let n = self.nrows;
         let (n0, n1, n2) = self.bisection_bfs(0, n);
-        println!("n0={} n1={} n2={}", n0, n1, n2);
+        //println!("n0={} n1={} n2={}", n0, n1, n2);
         self.coo_to_sky();
         // self.plot(200);
         // panic!();
-        let kmin = 0;
-        let kmax = n0;
-        let kmem = kmin;
-        factolu_par(
-            kmin,
-            kmax,
-            kmin,
-            self.prof.as_slice(),
-            &mut self.ltab[kmem..kmax],
-            self.sky.as_slice(),
-            &mut self.utab[kmem..kmax],
-        );
-        // let kmin = n0;
-        // let kmax = n1;
-        let kmin = n0;
-        let kmax = n1;
-        let kmem = kmin;
-        factolu_par(
-            kmin,
-            kmax,
-            kmem,
-            self.prof.as_slice(),
-            &mut self.ltab[kmem..kmax],
-            self.sky.as_slice(),
-            &mut self.utab[kmem..kmax],
+        let (mut ltab0,mut ltab1) = self.ltab.split_at_mut(n0);
+        let (mut utab0,mut utab1) = self.utab.split_at_mut(n0);  
+        let prof = self.prof.clone();
+        let sky = self.sky.clone();
+          
+        rayon::join(
+            || {
+                let kmin = 0;
+                let kmax = n0;
+                let kmem = kmin;
+                println!("thread0");
+                factolu_par(
+                    kmin,
+                    kmax,
+                    kmem,
+                    prof.as_slice(),
+                    &mut ltab0,
+                    sky.as_slice(),
+                    &mut utab0,
+                );
+            },
+            || {
+                // let kmin = n0;
+                // let kmax = n1;
+                let kmin = n0;
+                let kmax = n1;
+                let kmem = kmin;
+                println!("thread1");
+                factolu_par(
+                    kmin,
+                    kmax,
+                    kmem,
+                    prof.as_slice(),
+                    &mut ltab1,
+                    sky.as_slice(),
+                    &mut utab1,
+                );
+            },
         );
         let kmin = n1;
         let kmax = n2;
         let kmem = 0;
+        println!("thread2");
         factolu_par(
             kmin,
             kmax,
             kmem,
-            self.prof.as_slice(),
+            prof.as_slice(),
             &mut self.ltab[kmem..kmax],
-            self.sky.as_slice(),
+            sky.as_slice(),
             &mut self.utab[kmem..kmax],
         );
     }
@@ -847,7 +867,8 @@ impl Sky {
     pub fn solve(&mut self, mut bp: Vec<f64>) -> Result<Vec<f64>, String> {
         let m = self.prof.len();
         if m == 0 {
-            self.coo_to_sky();
+            //self.bisection_bfs(0, self.nrows);
+            //self.coo_to_sky();
             self.factolu_par();
         }
         let m = self.prof.len();
@@ -1164,9 +1185,9 @@ fn small_matrix() {
         .zip(v2.iter())
         .for_each(|(v1, v2)| assert!((*v1 - *v2).abs() < 1e-14));
 
-    sky.coo_to_sky();
+    //sky.coo_to_sky();
 
-    sky.print_lu();
+    //sky.print_lu();
 
     //sky.factolu().unwrap();
     sky.factolu_par();
@@ -1175,9 +1196,12 @@ fn small_matrix() {
 
     let mut a: Vec<Vec<f64>> = vec![vec![0. as f64; n]; n];
     //let mut sigma = vec![0; n];
+    let inv_sigma = sky.get_inv_sigma();
 
     coo.iter().for_each(|(i, j, v)| {
-        a[*i][*j] += *v;
+        let ip = inv_sigma[*i];
+        let jp = inv_sigma[*j];
+        a[ip][jp] += *v;
     });
 
     // comparison with the full solver
