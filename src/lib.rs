@@ -1,4 +1,5 @@
 use rayon::prelude::*;
+use std::collections::HashMap;
 
 /// Sparse matrix with skyline storage
 /// # Examples
@@ -56,6 +57,7 @@ pub struct Sky {
     inv_sigma: Vec<usize>,
     /// subdomain indicator
     color: Vec<f64>,
+    bisection: HashMap<(usize,usize), (usize,usize,usize,usize)>,
 }
 
 const WIDTH: usize = 12;
@@ -189,6 +191,7 @@ impl Sky {
         let sigma: Vec<usize> = (0..nrows).collect();
         let inv_sigma = sigma.clone();
         let color: Vec<f64> = vec![0.; nrows];
+        let bisection = HashMap::new();
         let mut sky = Sky {
             coo,
             rowstart: vec![],
@@ -201,6 +204,7 @@ impl Sky {
             sigma,
             inv_sigma,
             color,
+            bisection,
         };
         sky.compress();
         sky
@@ -210,7 +214,7 @@ impl Sky {
     /// then splits the nodes into two and
     /// puts the middle nodes at the end.
     /// Returns the starts of the three collections of nodes.
-    pub fn bisection_bfs(&mut self, nmin: usize, nmax: usize) -> (usize, usize, usize) {
+    pub fn bisection_bfs(&mut self, nmin: usize, nmax: usize) -> (usize,usize, usize, usize) {
         let n = self.nrows;
         assert_eq!(n, self.ncols);
         // size of the local permutation in sigma[nmin..nmax]
@@ -279,17 +283,21 @@ impl Sky {
         }
         let n0 = mid;
         let n2 = nmax;
-        (n0, n1, n2)
+        (nmin, n0, n1, n2)
     }
 
     /// Recurses the above algorithm until each matrix is small enough.
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 8;
-        //if nmax - nmin > n / ncpus {
-        if nmax - nmin > 8 {
-            let (n0, n1, n2) = self.bisection_bfs(nmin, nmax);
+        let ncpus = 2;
+        if nmax - nmin > n / ncpus {
+        // if nmax - nmin > 8 {
+            let (nb,n0, n1, n2) = self.bisection_bfs(nmin, nmax);
+            self.bisection.insert(
+                (nmin,nmax),
+                (nb, n0,n1,n2)
+            );
             self.color[nmin..n0]
                 .iter_mut()
                 .for_each(|c| *c = nmin as f64);
@@ -298,6 +306,10 @@ impl Sky {
             self.bisection_iter(nmin, n0);
             self.bisection_iter(n0, n1);
         }
+    }
+
+    pub fn print_bisection(&self) {
+        println!("bisection={:?}",self.bisection);
     }
 
     /// Renumbers the nodes with a Breadth First Search (BFS).
@@ -780,7 +792,7 @@ impl Sky {
     pub fn factolu_par(&mut self) {
         //self.coo_to_sky();
         let n = self.nrows;
-        let (n0, n1, n2) = self.bisection_bfs(0, n);
+        let (_,n0, n1, n2) = *self.bisection.get(&(0,n)).unwrap();
         //println!("n0={} n1={} n2={}", n0, n1, n2);
         self.coo_to_sky();
         // self.plot(200);

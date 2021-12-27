@@ -24,7 +24,9 @@ fn main() {
     println!("Compress...");
     let mut m = skyrs::Sky::new(vecval);
     println!("Renumbering...");
-    // m.bisection_iter(0, n);
+    m.bisection_iter(0, n);
+    m.print_bisection();
+    //panic!();
     // m.coo_to_sky();
     // m.plot(400);
     // panic!();
