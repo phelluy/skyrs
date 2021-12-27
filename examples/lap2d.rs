@@ -11,8 +11,8 @@ fn main() {
     ////////////////// Dirichlet ////////////////////
     let lx = 2.;
     let ly = 1.;
-    let nx = 600;
-    let ny = 150;
+    let nx = 1200;
+    let ny = 200;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
 
@@ -27,7 +27,7 @@ fn main() {
     m.bisection_iter(0, n);
     m.print_bisection();
     //panic!();
-    // m.coo_to_sky();
+    //m.coo_to_sky();
     // m.plot(400);
     // panic!();
     //m.bfs_renumber(0);

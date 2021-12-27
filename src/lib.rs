@@ -353,8 +353,8 @@ impl Sky {
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 3;
-        if nmax - nmin > n / ncpus {
+        let ncpus = 16;
+        if nmax - nmin > (n / ncpus).max(8) {
         //  if nmax - nmin > 8 {
             let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
             self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));
@@ -854,9 +854,9 @@ impl Sky {
         let n = self.nrows;
 
         // renumbering by nested disection
-        self.bisection_iter(0, n);
+        //self.bisection_iter(0, n);
         // build the skyline structure
-        self.coo_to_sky();
+        //self.coo_to_sky();
         // the borrow rules of rust imposes this...
         let prof = self.prof.clone();
         let sky = self.sky.clone();
@@ -907,7 +907,8 @@ impl Sky {
         let m = self.prof.len();
         if m == 0 {
             //self.bisection_bfs(0, self.nrows);
-            //self.coo_to_sky();
+            self.bisection_iter(0,self.nrows);
+            self.coo_to_sky();
             self.factolu_par();
         }
         let m = self.prof.len();
@@ -1224,7 +1225,7 @@ fn small_matrix() {
         .zip(v2.iter())
         .for_each(|(v1, v2)| assert!((*v1 - *v2).abs() < 1e-14));
 
-    //sky.coo_to_sky();
+    sky.coo_to_sky();
 
     //sky.print_lu();
 
