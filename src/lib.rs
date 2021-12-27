@@ -57,7 +57,7 @@ pub struct Sky {
     inv_sigma: Vec<usize>,
     /// subdomain indicator
     color: Vec<f64>,
-    bisection: HashMap<(usize,usize), (usize,usize,usize,usize)>,
+    bisection: HashMap<(usize, usize), (usize, usize, usize, usize)>,
 }
 
 const WIDTH: usize = 12;
@@ -173,6 +173,69 @@ pub fn factolu_par(
     }
 }
 
+/// Performs an LU decomposition on a range of
+/// rows/columns of a sparse matrix structure
+/// with the Doolittle algorithm. Functional
+/// version without test on vanishing pivot
+pub fn factolu_recurse(
+    kmin: usize,
+    kmax: usize,
+    kmem: usize, // can be kmin or zero
+    prof: &[usize],
+    ltab: &mut [Vec<f64>],
+    sky: &[usize],
+    utab: &mut [Vec<f64>],
+    bisection: &HashMap<(usize, usize), (usize, usize, usize, usize)>,
+) {
+    //let (n0, n1, n2, n3) = *bisection.get(&(kmin, kmax)).unwrap();
+    let bis = bisection.get(&(kmin, kmax));
+    match bis {
+        None => {
+            factolu_par(kmin, kmax, kmin, prof, ltab, sky, utab);
+        }
+        Some(&(n0, n1, n2, n3)) => {
+            //println!("n0={} n1={} n2={}", n0, n1, n2);
+            //self.coo_to_sky();
+            // self.plot(200);
+            // panic!();
+            let (mut ltab0, mut ltab1) = ltab.split_at_mut(n1-kmin);
+            let (mut utab0, mut utab1) = utab.split_at_mut(n1-kmin);
+            rayon::join(
+                || {
+                    println!("thread0");
+                    factolu_recurse(
+                        n0, n1, n0, prof, &mut ltab0, sky, &mut utab0, bisection,
+                    );
+                },
+                || {
+                    // let kmin = n0;
+                    // let kmax = n1;
+                    println!("thread1");
+                    factolu_recurse(
+                        n1, n2, n1, prof, &mut ltab1, sky, &mut utab1, bisection,
+                    );
+                },
+            );
+            let imin = n2;
+            let imax = n3;
+            let imem = n0;
+            println!("thread2");
+            //println!("size imin={} imax={} imem={} imax-imem={}",
+            //imin,imax,imem,imax-imem);
+            //println!("n0={} n1={} n2={} n3={}",n0,n1,n2,n3);
+            factolu_par(
+                imin,
+                imax,
+                imem,
+                prof,
+                ltab,
+                sky,
+                utab,
+            );
+        }
+    }
+}
+
 impl Sky {
     /// Constructs a matrix from a coordinate (coo) array.
     /// The coo array is compressed during the process:
@@ -214,7 +277,7 @@ impl Sky {
     /// then splits the nodes into two and
     /// puts the middle nodes at the end.
     /// Returns the starts of the three collections of nodes.
-    pub fn bisection_bfs(&mut self, nmin: usize, nmax: usize) -> (usize,usize, usize, usize) {
+    pub fn bisection_bfs(&mut self, nmin: usize, nmax: usize) -> (usize, usize, usize, usize) {
         let n = self.nrows;
         assert_eq!(n, self.ncols);
         // size of the local permutation in sigma[nmin..nmax]
@@ -290,14 +353,11 @@ impl Sky {
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 2;
+        let ncpus = 3;
         if nmax - nmin > n / ncpus {
-        // if nmax - nmin > 8 {
-            let (nb,n0, n1, n2) = self.bisection_bfs(nmin, nmax);
-            self.bisection.insert(
-                (nmin,nmax),
-                (nb, n0,n1,n2)
-            );
+        //  if nmax - nmin > 8 {
+            let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
+            self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));
             self.color[nmin..n0]
                 .iter_mut()
                 .for_each(|c| *c = nmin as f64);
@@ -309,7 +369,7 @@ impl Sky {
     }
 
     pub fn print_bisection(&self) {
-        println!("bisection={:?}",self.bisection);
+        println!("bisection={:?}", self.bisection);
     }
 
     /// Renumbers the nodes with a Breadth First Search (BFS).
@@ -792,61 +852,28 @@ impl Sky {
     pub fn factolu_par(&mut self) {
         //self.coo_to_sky();
         let n = self.nrows;
-        let (_,n0, n1, n2) = *self.bisection.get(&(0,n)).unwrap();
-        //println!("n0={} n1={} n2={}", n0, n1, n2);
+
+        // renumbering by nested disection
+        self.bisection_iter(0, n);
+        // build the skyline structure
         self.coo_to_sky();
-        // self.plot(200);
-        // panic!();
-        let (mut ltab0, mut ltab1) = self.ltab.split_at_mut(n0);
-        let (mut utab0, mut utab1) = self.utab.split_at_mut(n0);
+        // the borrow rules of rust imposes this...
         let prof = self.prof.clone();
         let sky = self.sky.clone();
-        rayon::join(
-            || {
-                let kmin = 0;
-                let kmax = n0;
-                let kmem = kmin;
-                println!("thread0");
-                factolu_par(
-                    kmin,
-                    kmax,
-                    kmem,
-                    prof.as_slice(),
-                    &mut ltab0,
-                    sky.as_slice(),
-                    &mut utab0,
-                );
-            },
-            || {
-                // let kmin = n0;
-                // let kmax = n1;
-                let kmin = n0;
-                let kmax = n1;
-                let kmem = kmin;
-                println!("thread1");
-                factolu_par(
-                    kmin,
-                    kmax,
-                    kmem,
-                    prof.as_slice(),
-                    &mut ltab1,
-                    sky.as_slice(),
-                    &mut utab1,
-                );
-            },
-        );
-        let kmin = n1;
-        let kmax = n2;
+
+        // then call the recursive function
+        let kmin = 0;
+        let kmax = n;
         let kmem = 0;
-        println!("thread2");
-        factolu_par(
+        factolu_recurse(
             kmin,
             kmax,
             kmem,
             prof.as_slice(),
-            &mut self.ltab[kmem..kmax],
+            self.ltab.as_mut_slice(),
             sky.as_slice(),
-            &mut self.utab[kmem..kmax],
+            self.utab.as_mut_slice(),
+            &self.bisection,
         );
     }
 
