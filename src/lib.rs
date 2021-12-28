@@ -374,7 +374,10 @@ impl Sky {
                     visited[js - nmin] = true;
                     permut.push(js);
                     let jindex = nmin + permut.len() - 1;
-                    // mark boundary nodes
+                    // mark boundary nodes  
+                    // <---- THERE IS A BUG HERE ------------>
+                    // we assume wrongly that the non zero terms
+                    // are disposed symmetrically...
                     if loc < mid && jindex >= mid {
                         cross[js - nmin] = true;
                     }
