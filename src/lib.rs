@@ -99,7 +99,7 @@ fn scall(
     j: usize,
     kmin: usize, // décalage dans utab et ltab
     prof: &[usize],
-    ltab: &[Vec<f64>],
+    ltab: &[f64],
     sky: &[usize],
     utab: &[Vec<f64>],
 ) -> f64 {
@@ -107,7 +107,8 @@ fn scall(
     let (lmin, lmax) = (pmin - prof[i], j - prof[i]);
     let (umin, _umax) = (pmin - sky[j], j - sky[j]);
     let size = (lmax - lmin) as i32;
-    let pl = &(ltab[i - kmin][lmin]);
+    //let pl = &(ltab[i - kmin][lmin]);
+    let pl = &(ltab[lmin]);
     //    println!("j={} kmin={}",j,kmin);
     let pu = &(utab[j - kmin][umin]);
     let scal = if size > 0 {
@@ -129,7 +130,7 @@ fn scalu(
     prof: &[usize],
     ltab: &[Vec<f64>],
     sky: &[usize],
-    utab: &[Vec<f64>],
+    utab: &[f64],
 ) -> f64 {
     let pmin = prof[i].max(sky[j]);
     let (lmin, lmax) = (pmin - prof[i], i - prof[i]);
@@ -137,7 +138,7 @@ fn scalu(
     let size = (lmax - lmin) as i32;
     let scal = if size > 0 {
         let pl = &(ltab[i - kmin][lmin]);
-        let pu = &(utab[j - kmin][umin]);
+        let pu = &(utab[umin]);
         unsafe { sysblas::cblas_ddot(size, pu, 1, pl, 1) }
     } else {
         0.
@@ -161,13 +162,13 @@ pub fn factolu_par(
     for k in kmin..kmax {
         for j in prof[k]..k {
             let mut lkj = ltab[k - kmem][j - prof[k]];
-            lkj -= scall(k, j, kmem, prof, ltab, sky, utab);
+            lkj -= scall(k, j, kmem, prof, ltab[k-kmem].as_slice(), sky, utab);
             lkj /= utab[j - kmem][j - sky[j]];
             ltab[k - kmem][j - prof[k]] = lkj;
         }
         for i in sky[k].max(1)..k + 1 {
             let mut uik = utab[k - kmem][i - sky[k]];
-            uik -= scalu(i, k, kmem, prof, ltab, sky, utab);
+            uik -= scalu(i, k, kmem, prof, ltab, sky, utab[k-kmem].as_slice());
             utab[k - kmem][i - sky[k]] = uik;
         }
     }
@@ -188,31 +189,43 @@ pub fn factolu_par2(
     sky: &[usize],
     utab: &mut [Vec<f64>],
 ) {
-    // external part
-    for k in kmin..kmax {
+    // external part (split into two k loops)
+    ltab.par_iter_mut().skip(kmin-kmem).take(kmax-kmin).enumerate().for_each(|(kr,lt)| {
+        let k = kr + kmin;
         for j in prof[k]..kmin {
-            let mut lkj = ltab[k - kmem][j - prof[k]];
-            lkj -= scall(k, j, kmem, prof, ltab, sky, utab);
+            let mut lkj = lt[j - prof[k]];
+            lkj -= scall(k, j, kmem, prof, lt.as_slice(), sky, utab);
             lkj /= utab[j - kmem][j - sky[j]];
-            ltab[k - kmem][j - prof[k]] = lkj;
+            lt[j - prof[k]] = lkj;
         }
+    });
+    // for k in kmin..kmax {
+    //     for j in prof[k]..kmin {
+    //         let mut lkj = ltab[k - kmem][j - prof[k]];
+    //         lkj -= scall(k, j, kmem, prof, ltab[k-kmem].as_slice(), sky, utab);
+    //         lkj /= utab[j - kmem][j - sky[j]];
+    //         ltab[k - kmem][j - prof[k]] = lkj;
+    //     }
+    // }
+    utab.par_iter_mut().skip(kmin-kmem).take(kmax-kmin).enumerate().for_each(|(kr,ut)| {
+        let k = kr+kmin;
         for i in sky[k]..kmin {
-            let mut uik = utab[k - kmem][i - sky[k]];
-            uik -= scalu(i, k, kmem, prof, ltab, sky, utab);
-            utab[k - kmem][i - sky[k]] = uik;
+            let mut uik = ut[i - sky[k]];
+            uik -= scalu(i, k, kmem, prof, ltab, sky, ut.as_slice());
+            ut[i - sky[k]] = uik;
         }
-    }
+    });
     // last block
     for k in kmin..kmax {
         for j in prof[k].max(kmin)..k {
             let mut lkj = ltab[k - kmem][j - prof[k]];
-            lkj -= scall(k, j, kmem, prof, ltab, sky, utab);
+            lkj -= scall(k, j, kmem, prof, ltab[k-kmem].as_slice(), sky, utab);
             lkj /= utab[j - kmem][j - sky[j]];
             ltab[k - kmem][j - prof[k]] = lkj;
         }
         for i in sky[k].max(kmin)..k + 1 {
             let mut uik = utab[k - kmem][i - sky[k]];
-            uik -= scalu(i, k, kmem, prof, ltab, sky, utab);
+            uik -= scalu(i, k, kmem, prof, ltab, sky, utab[k-kmem].as_slice());
             utab[k - kmem][i - sky[k]] = uik;
         }
     }
@@ -398,7 +411,7 @@ impl Sky {
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 4;
+        let ncpus = 32;
         if nmax - nmin > (n / ncpus).max(8) {
         //  if nmax - nmin > 8 {
             let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
