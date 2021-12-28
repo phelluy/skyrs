@@ -149,7 +149,7 @@ fn scalu(
 /// Performs an LU decomposition on a range of
 /// rows/columns of a sparse matrix structure
 /// with the Doolittle algorithm. Functional
-/// version without test on vanishing pivot
+/// version without test on vanishing pivot.
 pub fn factolu_par(
     kmin: usize,
     kmax: usize,
@@ -176,9 +176,8 @@ pub fn factolu_par(
 
 /// Performs an LU decomposition on a range of
 /// rows/columns of a sparse matrix structure
-/// with the Doolittle algorithm. Functional
-/// version without test on vanishing pivot.
-/// Specialized version for the last pass of the 
+/// with the Doolittle algorithm.
+/// Specialized version for the last pass on the 
 /// bisected matrix.
 pub fn factolu_par2(
     kmin: usize,
@@ -199,14 +198,6 @@ pub fn factolu_par2(
             lt[j - prof[k]] = lkj;
         }
     });
-    // for k in kmin..kmax {
-    //     for j in prof[k]..kmin {
-    //         let mut lkj = ltab[k - kmem][j - prof[k]];
-    //         lkj -= scall(k, j, kmem, prof, ltab[k-kmem].as_slice(), sky, utab);
-    //         lkj /= utab[j - kmem][j - sky[j]];
-    //         ltab[k - kmem][j - prof[k]] = lkj;
-    //     }
-    // }
     utab.par_iter_mut().skip(kmin-kmem).take(kmax-kmin).enumerate().for_each(|(kr,ut)| {
         let k = kr+kmin;
         for i in sky[k]..kmin {
@@ -231,10 +222,7 @@ pub fn factolu_par2(
     }
 }
 
-/// Performs an LU decomposition on a range of
-/// rows/columns of a sparse matrix structure
-/// with the Doolittle algorithm. Functional
-/// version without test on vanishing pivot
+/// Recursion of the above algorithms.
 pub fn factolu_recurse(
     kmin: usize,
     kmax: usize,
@@ -244,30 +232,21 @@ pub fn factolu_recurse(
     utab: &mut [Vec<f64>],
     bisection: &HashMap<(usize, usize), (usize, usize, usize, usize)>,
 ) {
-    //let (n0, n1, n2, n3) = *bisection.get(&(kmin, kmax)).unwrap();
     let bis = bisection.get(&(kmin, kmax));
     match bis {
         None => {
             factolu_par(kmin, kmax, kmin, prof, ltab, sky, utab);
         }
         Some(&(n0, n1, n2, n3)) => {
-            //println!("n0={} n1={} n2={}", n0, n1, n2);
-            //self.coo_to_sky();
-            // self.plot(200);
-            // panic!();
             let (mut ltab0, mut ltab1) = ltab.split_at_mut(n1-kmin);
             let (mut utab0, mut utab1) = utab.split_at_mut(n1-kmin);
             rayon::join(
                 || {
-                    //println!("thread0");
                     factolu_recurse(
                         n0, n1, prof, &mut ltab0, sky, &mut utab0, bisection,
                     );
                 },
                 || {
-                    // let kmin = n0;
-                    // let kmax = n1;
-                    //println!("thread1");
                     factolu_recurse(
                         n1, n2, prof, &mut ltab1, sky, &mut utab1, bisection,
                     );
@@ -276,10 +255,6 @@ pub fn factolu_recurse(
             let imin = n2;
             let imax = n3;
             let imem = n0;
-            //println!("thread2");
-            //println!("size imin={} imax={} imem={} imax-imem={}",
-            //imin,imax,imem,imax-imem);
-            //println!("n0={} n1={} n2={} n3={}",n0,n1,n2,n3);
             factolu_par2(
                 imin,
                 imax,
@@ -918,15 +893,12 @@ impl Sky {
 
     /// Performs an LU decomposition on the sparse matrix structure
     /// with the Doolittle algorithm. Parallel version without
-    /// test on vanishing pivot.
+    /// test on vanishing pivot. Faster if the matrix has been
+    /// first renumbered by the bisection algorithm.
+    /// Runs sequentially otherwise.
     pub fn factolu_par(&mut self) {
-        //self.coo_to_sky();
         let n = self.nrows;
 
-        // renumbering by nested disection
-        //self.bisection_iter(0, n);
-        // build the skyline structure
-        //self.coo_to_sky();
         // the borrow rules of rust imposes this...
         let prof = self.prof.clone();
         let sky = self.sky.clone();
@@ -947,8 +919,9 @@ impl Sky {
 
     /// Performs an LU decomposition on the sparse matrix
     /// with the Doolittle algorithm.
+    /// This version can be read by a human. The optimized
+    /// algorithm is in factolu_par.
     pub fn factolu(&mut self) -> Result<(), String> {
-        //self.coo_to_sky();
         let n = self.nrows;
         for k in 1..n {
             for j in self.prof[k]..k {
@@ -970,7 +943,7 @@ impl Sky {
         Ok(())
     }
     /// Triangular solves.
-    /// Calls the LU decomposition if this is not yet done.
+    /// Calls the LU decomposition before if this is not yet done.
     pub fn solve(&mut self, mut bp: Vec<f64>) -> Result<Vec<f64>, String> {
         let m = self.prof.len();
         if m == 0 {
@@ -993,7 +966,6 @@ impl Sky {
         b[n - 1] /= self.get_u(n - 1, n - 1);
         for j in (0..n - 1).rev() {
             for i in self.sky[j + 1]..j + 1 {
-                //for i in 0..j {
                 b[i] -= self.get_u(i, j + 1) * b[j + 1];
             }
             b[j] /= self.get_u(j, j);
@@ -1028,6 +1000,7 @@ impl Sky {
         }
         Ok(())
     }
+
     /// Triangular solves with the full structure.
     /// Only here for debug.
     #[allow(dead_code)]
@@ -1048,6 +1021,7 @@ impl Sky {
         }
         b
     }
+
     /// Performs the LU decomposition with the Gauss method
     /// on the full matrix.
     /// Not efficient: only for debug purpose.
@@ -1182,7 +1156,7 @@ fn gauss_permute(x: &mut Vec<f64>, sigma: &Vec<usize>) {
 
 /// Triangular solves.
 /// plu_solve must be called first
-/// and this has to be checked by the user before !
+/// and this has to be checked by the user before.
 pub fn gauss_solve(a: &Vec<Vec<f64>>, sigma: &Vec<usize>, x: &mut Vec<f64>) {
     let n = a.len();
     assert_eq!(n, x.len());
@@ -1244,7 +1218,7 @@ fn diagonal() {
     let v = sky.solve(u).unwrap();
     println!("{:?}", v);
 
-    //assert_float_eq!(v,(0..n).map(|i| i as f64 / 2.).collect(), abs_all <= 1e-12);
+    assert_float_eq!(v,(0..n).map(|i| i as f64 / 2.).collect(), abs_all <= 1e-12);
 }
 
 #[test]
