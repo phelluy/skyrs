@@ -474,6 +474,16 @@ impl Sky {
         self.inv_sigma = inv_permut;
 
         // invalidate a possible LU decomposition
+        self.invalidate();
+    }
+
+        /// Invalidates a possible LU decomposition.
+        fn invalidate(&mut self) {
+        let n = self.nrows;
+        // self.sigma = (0..self.nrows).collect();
+        // self.inv_sigma = self.sigma.clone();
+        self.color = vec![0.; n];
+        self.bisection = HashMap::new();
         self.sky = vec![];
         self.prof = vec![];
         self.ltab = vec![vec![]; n];
