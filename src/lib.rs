@@ -223,6 +223,8 @@ pub fn factolu_par2(
 }
 
 /// Recursion of the above algorithms.
+/// Remark: if the bisection table is void
+/// this will simply run the sequential algorithm.
 pub fn factolu_recurse(
     kmin: usize,
     kmax: usize,
@@ -235,6 +237,7 @@ pub fn factolu_recurse(
     let bis = bisection.get(&(kmin, kmax));
     match bis {
         None => {
+            // finest bisection level or no bisection at all:
             factolu_par(kmin, kmax, kmin, prof, ltab, sky, utab);
         }
         Some(&(n0, n1, n2, n3)) => {
@@ -255,6 +258,7 @@ pub fn factolu_recurse(
             let imin = n2;
             let imax = n3;
             let imem = n0;
+            // Specialized LU algo for the third block 
             factolu_par2(
                 imin,
                 imax,
@@ -720,36 +724,6 @@ impl Sky {
             );
         };
 
-        // let n = self.nrows;
-        // let size = 1000;
-        // let ngroups = n / size;
-
-        // assert!(n%size == 0); // for the moment...
-
-        // v.par_chunks_mut(size).enumerate().for_each(|(ig, cv)| {
-        //     let imin = ig * size;
-        //     cv.iter_mut().enumerate().for_each(|(i, v)| {
-        //         //println!("imin={} imax={} i={}",imin,imax,i);
-        //         self.coo[self.rowstart[i + imin]..self.rowstart[i + imin+1]]
-        //             .iter()
-        //             .for_each(|coo| {
-        //                 *v += coo.2 * u[coo.1];
-        //             });
-        //     });
-        // });
-
-        // (0..ngroups+1).for_each(|ig| {
-        //     let imin = ig * size;
-        //     let imax = ((ig + 1) * size).min(v.len());
-        //     v[imin..imax].iter_mut().enumerate().for_each(|(i, v)| {
-        //         //println!("imin={} imax={} i={}",imin,imax,i);
-        //         self.coo[self.rowstart[i + imin]..self.rowstart[i + imin + 1]]
-        //             .iter()
-        //             .for_each(|coo| {
-        //                 *v += coo.2 * u[coo.1];
-        //             });
-        //     });
-        // });
         v.par_iter_mut().enumerate().for_each(|(i, v)| {
             self.coo[self.rowstart[i]..self.rowstart[i + 1]]
                 .iter()
