@@ -6,11 +6,11 @@ The skyline format is an old and rusty :-) way to solve sparse linear systems.
 See for instance (among many other authors)
 
 ```bibtex
-@book{dhatt1981presentation,
-  title={Une pr{\'e}sentation de la m{\'e}thode des {\'e}l{\'e}ments finis},
-  author={Dhatt, Gouri and Touzot, Gilbert},
-  year={1981},
-  publisher={Presses Universit{\'e} Laval}
+@book{dhatt2012finite,
+  title={Finite element method},
+  author={Dhatt, Gouri and Lefran{\c{c}}ois, Emmanuel and Touzot, Gilbert},
+  year={2012},
+  publisher={John Wiley \& Sons}
 }
 ```
 
@@ -23,6 +23,8 @@ Do not forget to add the line
 skyrs = {git = "https://github.com/phelluy/skyrs"}
 ```
 in the `[dependencies]` section of your `Cargo.toml`.
+
+Be careful: for the moment, the library won't work for sparse matrices with non-symmetric profiles (we assume that if A[i][j] != 0 then A[j][i] != 0).
 
 ## Example
 
