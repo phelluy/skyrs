@@ -238,7 +238,6 @@ pub fn factolu_par2(
 pub fn factolu_recurse(
     kmin: usize,
     kmax: usize,
-    kmem: usize, // can be kmin or zero
     prof: &[usize],
     ltab: &mut [Vec<f64>],
     sky: &[usize],
@@ -260,24 +259,24 @@ pub fn factolu_recurse(
             let (mut utab0, mut utab1) = utab.split_at_mut(n1-kmin);
             rayon::join(
                 || {
-                    println!("thread0");
+                    //println!("thread0");
                     factolu_recurse(
-                        n0, n1, n0, prof, &mut ltab0, sky, &mut utab0, bisection,
+                        n0, n1, prof, &mut ltab0, sky, &mut utab0, bisection,
                     );
                 },
                 || {
                     // let kmin = n0;
                     // let kmax = n1;
-                    println!("thread1");
+                    //println!("thread1");
                     factolu_recurse(
-                        n1, n2, n1, prof, &mut ltab1, sky, &mut utab1, bisection,
+                        n1, n2, prof, &mut ltab1, sky, &mut utab1, bisection,
                     );
                 },
             );
             let imin = n2;
             let imax = n3;
             let imem = n0;
-            println!("thread2");
+            //println!("thread2");
             //println!("size imin={} imax={} imem={} imax-imem={}",
             //imin,imax,imem,imax-imem);
             //println!("n0={} n1={} n2={} n3={}",n0,n1,n2,n3);
@@ -411,7 +410,7 @@ impl Sky {
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 32;
+        let ncpus = 2;
         if nmax - nmin > (n / ncpus).max(8) {
         //  if nmax - nmin > 8 {
             let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
@@ -926,7 +925,6 @@ impl Sky {
         factolu_recurse(
             kmin,
             kmax,
-            kmem,
             prof.as_slice(),
             self.ltab.as_mut_slice(),
             sky.as_slice(),
@@ -966,6 +964,7 @@ impl Sky {
         if m == 0 {
             //self.bisection_bfs(0, self.nrows);
             self.bisection_iter(0,self.nrows);
+            //self.bfs_renumber(0);
             self.coo_to_sky();
             self.factolu_par();
         }
