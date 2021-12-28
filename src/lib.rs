@@ -921,7 +921,6 @@ impl Sky {
         // then call the recursive function
         let kmin = 0;
         let kmax = n;
-        let kmem = 0;
         factolu_recurse(
             kmin,
             kmax,
