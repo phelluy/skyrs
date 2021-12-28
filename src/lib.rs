@@ -176,6 +176,51 @@ pub fn factolu_par(
 /// Performs an LU decomposition on a range of
 /// rows/columns of a sparse matrix structure
 /// with the Doolittle algorithm. Functional
+/// version without test on vanishing pivot.
+/// Specialized version for the last pass of the 
+/// bisected matrix.
+pub fn factolu_par2(
+    kmin: usize,
+    kmax: usize,
+    kmem: usize, // can be kmin or zero
+    prof: &[usize],
+    ltab: &mut [Vec<f64>],
+    sky: &[usize],
+    utab: &mut [Vec<f64>],
+) {
+    // external part
+    for k in kmin..kmax {
+        for j in prof[k]..kmin {
+            let mut lkj = ltab[k - kmem][j - prof[k]];
+            lkj -= scall(k, j, kmem, prof, ltab, sky, utab);
+            lkj /= utab[j - kmem][j - sky[j]];
+            ltab[k - kmem][j - prof[k]] = lkj;
+        }
+        for i in sky[k]..kmin {
+            let mut uik = utab[k - kmem][i - sky[k]];
+            uik -= scalu(i, k, kmem, prof, ltab, sky, utab);
+            utab[k - kmem][i - sky[k]] = uik;
+        }
+    }
+    // last block
+    for k in kmin..kmax {
+        for j in prof[k].max(kmin)..k {
+            let mut lkj = ltab[k - kmem][j - prof[k]];
+            lkj -= scall(k, j, kmem, prof, ltab, sky, utab);
+            lkj /= utab[j - kmem][j - sky[j]];
+            ltab[k - kmem][j - prof[k]] = lkj;
+        }
+        for i in sky[k].max(kmin)..k + 1 {
+            let mut uik = utab[k - kmem][i - sky[k]];
+            uik -= scalu(i, k, kmem, prof, ltab, sky, utab);
+            utab[k - kmem][i - sky[k]] = uik;
+        }
+    }
+}
+
+/// Performs an LU decomposition on a range of
+/// rows/columns of a sparse matrix structure
+/// with the Doolittle algorithm. Functional
 /// version without test on vanishing pivot
 pub fn factolu_recurse(
     kmin: usize,
@@ -223,7 +268,7 @@ pub fn factolu_recurse(
             //println!("size imin={} imax={} imem={} imax-imem={}",
             //imin,imax,imem,imax-imem);
             //println!("n0={} n1={} n2={} n3={}",n0,n1,n2,n3);
-            factolu_par(
+            factolu_par2(
                 imin,
                 imax,
                 imem,
@@ -353,7 +398,7 @@ impl Sky {
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 16;
+        let ncpus = 4;
         if nmax - nmin > (n / ncpus).max(8) {
         //  if nmax - nmin > 8 {
             let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
