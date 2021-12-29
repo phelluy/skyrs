@@ -30,7 +30,7 @@ For a starting point to the nested bisection method, you can see:
 }
 ```
 
-A short description of the method is given at:
+A short description of the method is given in the doc:
 
 [https://github.com/phelluy/skyrs/blob/main/doc/skyline.pdf](https://github.com/phelluy/skyrs/blob/main/doc/skyline.pdf)
 
