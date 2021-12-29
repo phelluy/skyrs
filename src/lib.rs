@@ -957,7 +957,7 @@ impl Sky {
             //self.bfs_renumber(0);
             self.coo_to_sky();
             self.factolu_par();
-            println!("coo len={}",self.coo.len());
+            //println!("coo len={}",self.coo.len());
         }
         let m = self.prof.len();
         let mut b: Vec<f64> = (0..m).map(|i| bp[self.sigma[i]]).collect();
