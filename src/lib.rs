@@ -162,13 +162,13 @@ pub fn factolu_par(
     for k in kmin..kmax {
         for j in prof[k]..k {
             let mut lkj = ltab[k - kmem][j - prof[k]];
-            lkj -= scall(k, j, kmem, prof, ltab[k-kmem].as_slice(), sky, utab);
+            lkj -= scall(k, j, kmem, prof, ltab[k - kmem].as_slice(), sky, utab);
             lkj /= utab[j - kmem][j - sky[j]];
             ltab[k - kmem][j - prof[k]] = lkj;
         }
         for i in sky[k].max(1)..k + 1 {
             let mut uik = utab[k - kmem][i - sky[k]];
-            uik -= scalu(i, k, kmem, prof, ltab, sky, utab[k-kmem].as_slice());
+            uik -= scalu(i, k, kmem, prof, ltab, sky, utab[k - kmem].as_slice());
             utab[k - kmem][i - sky[k]] = uik;
         }
     }
@@ -177,7 +177,7 @@ pub fn factolu_par(
 /// Performs an LU decomposition on a range of
 /// rows/columns of a sparse matrix structure
 /// with the Doolittle algorithm.
-/// Specialized version for the last pass on the 
+/// Specialized version for the last pass on the
 /// bisected matrix.
 pub fn factolu_par2(
     kmin: usize,
@@ -189,34 +189,42 @@ pub fn factolu_par2(
     utab: &mut [Vec<f64>],
 ) {
     // external part (split into two k loops)
-    ltab.par_iter_mut().skip(kmin-kmem).take(kmax-kmin).enumerate().for_each(|(kr,lt)| {
-        let k = kr + kmin;
-        for j in prof[k]..kmin {
-            let mut lkj = lt[j - prof[k]];
-            lkj -= scall(k, j, kmem, prof, lt.as_slice(), sky, utab);
-            lkj /= utab[j - kmem][j - sky[j]];
-            lt[j - prof[k]] = lkj;
-        }
-    });
-    utab.par_iter_mut().skip(kmin-kmem).take(kmax-kmin).enumerate().for_each(|(kr,ut)| {
-        let k = kr+kmin;
-        for i in sky[k]..kmin {
-            let mut uik = ut[i - sky[k]];
-            uik -= scalu(i, k, kmem, prof, ltab, sky, ut.as_slice());
-            ut[i - sky[k]] = uik;
-        }
-    });
+    ltab.par_iter_mut()
+        .skip(kmin - kmem)
+        .take(kmax - kmin)
+        .enumerate()
+        .for_each(|(kr, lt)| {
+            let k = kr + kmin;
+            for j in prof[k]..kmin {
+                let mut lkj = lt[j - prof[k]];
+                lkj -= scall(k, j, kmem, prof, lt.as_slice(), sky, utab);
+                lkj /= utab[j - kmem][j - sky[j]];
+                lt[j - prof[k]] = lkj;
+            }
+        });
+    utab.par_iter_mut()
+        .skip(kmin - kmem)
+        .take(kmax - kmin)
+        .enumerate()
+        .for_each(|(kr, ut)| {
+            let k = kr + kmin;
+            for i in sky[k]..kmin {
+                let mut uik = ut[i - sky[k]];
+                uik -= scalu(i, k, kmem, prof, ltab, sky, ut.as_slice());
+                ut[i - sky[k]] = uik;
+            }
+        });
     // last block
     for k in kmin..kmax {
         for j in prof[k].max(kmin)..k {
             let mut lkj = ltab[k - kmem][j - prof[k]];
-            lkj -= scall(k, j, kmem, prof, ltab[k-kmem].as_slice(), sky, utab);
+            lkj -= scall(k, j, kmem, prof, ltab[k - kmem].as_slice(), sky, utab);
             lkj /= utab[j - kmem][j - sky[j]];
             ltab[k - kmem][j - prof[k]] = lkj;
         }
         for i in sky[k].max(kmin)..k + 1 {
             let mut uik = utab[k - kmem][i - sky[k]];
-            uik -= scalu(i, k, kmem, prof, ltab, sky, utab[k-kmem].as_slice());
+            uik -= scalu(i, k, kmem, prof, ltab, sky, utab[k - kmem].as_slice());
             utab[k - kmem][i - sky[k]] = uik;
         }
     }
@@ -241,33 +249,21 @@ pub fn factolu_recurse(
             factolu_par(kmin, kmax, kmin, prof, ltab, sky, utab);
         }
         Some(&(n0, n1, n2, n3)) => {
-            let (mut ltab0, mut ltab1) = ltab.split_at_mut(n1-kmin);
-            let (mut utab0, mut utab1) = utab.split_at_mut(n1-kmin);
+            let (mut ltab0, mut ltab1) = ltab.split_at_mut(n1 - kmin);
+            let (mut utab0, mut utab1) = utab.split_at_mut(n1 - kmin);
             rayon::join(
                 || {
-                    factolu_recurse(
-                        n0, n1, prof, &mut ltab0, sky, &mut utab0, bisection,
-                    );
+                    factolu_recurse(n0, n1, prof, &mut ltab0, sky, &mut utab0, bisection);
                 },
                 || {
-                    factolu_recurse(
-                        n1, n2, prof, &mut ltab1, sky, &mut utab1, bisection,
-                    );
+                    factolu_recurse(n1, n2, prof, &mut ltab1, sky, &mut utab1, bisection);
                 },
             );
             let imin = n2;
             let imax = n3;
             let imem = n0;
-            // Specialized LU algo for the third block 
-            factolu_par2(
-                imin,
-                imax,
-                imem,
-                prof,
-                ltab,
-                sky,
-                utab,
-            );
+            // Specialized LU algo for the third block
+            factolu_par2(imin, imax, imem, prof, ltab, sky, utab);
         }
     }
 }
@@ -353,7 +349,7 @@ impl Sky {
                     visited[js - nmin] = true;
                     permut.push(js);
                     let jindex = nmin + permut.len() - 1;
-                    // mark boundary nodes  
+                    // mark boundary nodes
                     // <---- THERE IS A BUG HERE ------------>
                     // we assume wrongly that the non zero terms
                     // are disposed symmetrically...
@@ -394,7 +390,7 @@ impl Sky {
         // estimate of the final domains
         let ncpus = 2;
         if nmax - nmin > (n / ncpus).max(8) {
-        //  if nmax - nmin > 8 {
+            //  if nmax - nmin > 8 {
             let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
             self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));
             self.color[nmin..n0]
@@ -412,7 +408,7 @@ impl Sky {
     }
 
     /// Renumbers the nodes with a Breadth First Search (BFS).
-    /// The matrix graph is supposed to be connected.
+    /// The matrix graph is supposed to be connected and symmetrized
     pub fn bfs_renumber(&mut self, start: usize) {
         let n = self.nrows;
         assert_eq!(n, self.ncols);
@@ -456,8 +452,8 @@ impl Sky {
         self.invalidate();
     }
 
-        /// Invalidates a possible LU decomposition.
-        fn invalidate(&mut self) {
+    /// Invalidates a possible LU decomposition.
+    fn invalidate(&mut self) {
         let n = self.nrows;
         // self.sigma = (0..self.nrows).collect();
         // self.inv_sigma = self.sigma.clone();
@@ -633,6 +629,30 @@ impl Sky {
     #[inline(always)] // probably useless, but...
     fn set_u(&mut self, i: usize, j: usize, val: f64) {
         self.utab[j][i - self.sky[j]] = val;
+    }
+
+    /// Add fake zeros for symmetrizing the structure of the matrix
+    fn coo_sym(&mut self) {
+        let nz0 = self.coo.len();
+        let mut _count = 0;
+        for k in 0..nz0 {
+            let (i, j, _v) = self.coo[k];
+            // search a non-zero value of the form (j,i,v)
+            let jstart = self.rowstart[j];
+            let jend = self.rowstart[j + 1];
+            let tr = self.coo[jstart..jend]
+                .iter()
+                .position(|(j0, i0, _v0)| *i0 == i && *j0 == j);
+            match tr {
+                None => {
+                    self.coo.push((j, i, 0.));
+                    _count += 1;
+                }
+                Some(_) => {}
+            }
+        }
+        //println!("Add {} elem for sym", count);
+        self.compress();
     }
 
     /// Sorts the coo array and combines values with the same (i,j) indices.
@@ -921,8 +941,9 @@ impl Sky {
     pub fn solve(&mut self, mut bp: Vec<f64>) -> Result<Vec<f64>, String> {
         let m = self.prof.len();
         if m == 0 {
-            //self.bisection_bfs(0, self.nrows);
-            self.bisection_iter(0,self.nrows);
+            // necessary for a correct bfs search
+            self.coo_sym();
+            self.bisection_iter(0, self.nrows);
             //self.bfs_renumber(0);
             self.coo_to_sky();
             self.factolu_par();
@@ -1192,7 +1213,7 @@ fn diagonal() {
     let v = sky.solve(u).unwrap();
     println!("{:?}", v);
 
-    assert_float_eq!(v,(0..n).map(|i| i as f64 / 2.).collect(), abs_all <= 1e-12);
+    assert_float_eq!(v, (0..n).map(|i| i as f64 / 2.).collect(), abs_all <= 1e-12);
 }
 
 #[test]
@@ -1233,6 +1254,8 @@ fn small_matrix() {
 
     println!("Au={:?}", v1);
 
+    // necessary because this matrix is not symmetric
+    sky.coo_sym();
     sky.compress();
 
     let v2 = sky.vec_mult(&u);
