@@ -34,6 +34,7 @@ fn main() {
 
     println!("Solving...");
     let f0 = vec![1.; n];
+    //let f0: Vec<f64> = (0..n).map(|i| i as f64 / n as f64 ).collect();
     use std::time::Instant;
     let start = Instant::now();
     let zp = m.solve(f0.clone()).unwrap();
