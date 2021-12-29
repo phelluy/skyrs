@@ -2,9 +2,9 @@
 Skyline sparse matrix linear solver in Rust. Parallelization thanks to 
 a nested bisection renumbering.
 
-The skyline format is an old and rusty :-) way to solve sparse linear systems.
+The skyline format is an old and rusty :-) tool for solving sparse linear systems.
 
-See for instance (among many other authors)
+See for instance (among many others)
 
 ```bibtex
 @book{dhatt2012finite,
