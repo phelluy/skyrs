@@ -1603,6 +1603,17 @@ noprefix "false"
 
 \end_deeper
 \begin_layout Itemize
+An extended example is given in 
+\family typewriter
+example/lap2d.rs
+\family default
+.
+ It solves the Laplace equation on a rectangular finite difference grid.
+ This example requires a working installation of Python3 and Matplotlib
+ for viewing the plots.
+\end_layout
+
+\begin_layout Itemize
 TODO list:
 \end_layout
 
