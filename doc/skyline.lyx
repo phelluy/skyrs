@@ -36,7 +36,7 @@ figs-within-sections
 \paperfontsize default
 \spacing single
 \use_hyperref false
-\papersize default
+\papersize a4paper
 \use_geometry false
 \use_package amsmath 1
 \use_package amssymb 1
@@ -83,7 +83,15 @@ figs-within-sections
 \begin_body
 
 \begin_layout Title
-A skyline sparse matrix solver in Rust
+
+\family typewriter
+skyrs
+\family default
+: a skyline sparse matrix solver in Rust
+\end_layout
+
+\begin_layout Author
+Philippe Helluy
 \end_layout
 
 \begin_layout Section
@@ -1262,14 +1270,15 @@ A good partition is a partition where
 
  is minimal.
  It is difficult to construct an optimal bisection.
- We shall consider in the following two different heuristics for splitting
+ We plan to consider in the following two different heuristics for splitting
  
 \begin_inset Formula $V$
 \end_inset
 
 : by a breadth-first-search (BFS) algorithm and by a spectral bisection
  method.
- But for the moment, assume that the splitting is done.
+ For the moment, only the BFS renumbering is used.
+ Assume that the splitting is done.
  We then denote by 
 \begin_inset Formula $V_{1}$
 \end_inset
@@ -1312,7 +1321,7 @@ We then construct a permutation of the vertices of
 \begin_inset Formula $V_{0}$
 \end_inset
 
- then the verticies in 
+ then the vertices in 
 \begin_inset Formula $V_{1}$
 \end_inset
 
@@ -1357,13 +1366,13 @@ The matrix
 
  has the following structure
 \begin_inset Formula 
-\[
+\begin{equation}
 B=\left(\begin{array}{ccc}
 C_{0}^{0} & 0 & C_{2}^{0}\\
 0 & C_{1}^{1} & C_{2}^{1}\\
 C_{0}^{2} & C_{1}^{2} & C_{2}^{2}
-\end{array}\right),
-\]
+\end{array}\right),\label{eq:matb}
+\end{equation}
 
 \end_inset
 
@@ -1397,7 +1406,231 @@ where the block matrix
 
  this can be much more efficient.
  In addition, the bisection can be reiterated on the diagonal blocks recursively.
+\end_layout
+
+\begin_layout Subsection
+Bibliographical note
+\end_layout
+
+\begin_layout Standard
+It is not possible to cite all the research works done on sparse matrix
+ solvers and nested bisection algorithm.
+ We refer to the short bibliography given at the end of this report.
+ The reader is alerted on the fact that the 
+\family typewriter
+skyrs
+\family default
+ library is relatively fast, but that it cannot compete with the most up-to-date
+ sparse LU solvers, such as SuperLU 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "li2005overview"
+literal "false"
+
+\end_inset
+
+, UMFPACK 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "davis2004algorithm"
+literal "false"
+
+\end_inset
+
+ or PaStiX 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "henon2002pastix"
+literal "false"
+
+\end_inset
+
+.
+ But 
+\family typewriter
+skyrs
+\family default
+ is not wrapper, it is written in Rust ! 
+\end_layout
+
+\begin_layout Subsection
+Notes on the implementation
+\end_layout
+
+\begin_layout Itemize
+I have programmed the 
+\family typewriter
+skyrs
+\family default
+ library in Rust.
+ It can be found at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://github.com/phelluy/skyrs
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+The main struct is the 
+\family typewriter
+Sky
+\family default
+ struct.
+ A skyline matrix is constructed from a matrix given in the coordinate format
+ (see the example given in the online documentation).
+\end_layout
+
+\begin_layout Itemize
+The library has two main functions:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+the 
+\family typewriter
+vec_mult
+\family default
+ function performs a matrix vector product (that is parallelized thanks
+ to 
+\family typewriter
+Rayon
+\family default
+);
+\end_layout
+
+\begin_layout Itemize
+the 
+\family typewriter
+solve
+\family default
+ function solves the linear system 
+\begin_inset Formula $Ax=b$
+\end_inset
+
+.
+ At the first invocation, the bisection renumbering and the LU decomposition
+ are performed.
+ On the next invocations, the LU decomposition is reused and the resolution
+ is faster.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+
+\family typewriter
+skyrs
+\family default
+ uses BLAS (Basic Linear Algebra Subroutines) for accelerating scalar products
+ computations.
+ A working installation of a BLAS library is thus mandatory.
+ It depends on the OS.
+\end_layout
+
+\begin_layout Itemize
+The nested bisection is programmed with a recursive function.
+ The node permutation is updated recursively and the bisection data are
+ stored in a binary tree (in practice I used a Rust HashMap for storing
+ the tree).
  
+\end_layout
+
+\begin_layout Itemize
+The parallelism is implemented thanks to the Rust 
+\family typewriter
+Rayon
+\family default
+ library.
+ I used two features of the 
+\family typewriter
+Rayon
+\family default
+ library:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+the 
+\family typewriter
+join
+\family default
+ function for recursively compute the LU factors of 
+\begin_inset Formula $C_{0}^{0}$
+\end_inset
+
+ and 
+\begin_inset Formula $C_{1}^{1}$
+\end_inset
+
+ in (
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:matb"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+); 
+\end_layout
+
+\begin_layout Itemize
+the 
+\family typewriter
+par_iter
+\family default
+ iterator when it is possible for accelerating computation loops.
+ This is particularly important for accelerating the computations of the
+ in-place LU factors in the extra-diagonal terms of (
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:matb"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+TODO list:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+modify the library so that it can be used with other type.
+ For the moment, only the f64 type is possible.
+\end_layout
+
+\begin_layout Itemize
+do not rely on Python for matrix plotting.
+\end_layout
+
+\begin_layout Itemize
+improve the bisection algorithm with a spectral bisection method.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset CommandInset bibtex
+LatexCommand bibtex
+btprint "btPrintAll"
+bibfiles "skyline"
+options "plain"
+
+\end_inset
+
+
 \end_layout
 
 \end_body

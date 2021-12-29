@@ -38,7 +38,12 @@ Do not forget to add the line
 ```
 skyrs = {git = "https://github.com/phelluy/skyrs"}
 ```
-in the `[dependencies]` section of your `Cargo.toml`.
+in the `[dependencies]` section of your `Cargo.toml`. You also need a working installation of a BLAS 
+(Basic Linear Algebra Subroutines) library on your system. For the moment, the `skyrs` library has been tested on
+
+- Mac OS 12.1
+- Linux
+- Windows Subsystem for Linux (WSL) under MS Windows 10
 
 ## Example
 
