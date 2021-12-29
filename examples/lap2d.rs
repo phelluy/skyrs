@@ -11,8 +11,8 @@ fn main() {
     ////////////////// Dirichlet ////////////////////
     let lx = 2.;
     let ly = 1.;
-    let nx = 200;
-    let ny = 100;
+    let nx = 1200;
+    let ny = 300;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
 
