@@ -1,5 +1,6 @@
 # skyrs
-Skyline sparse matrix linear solver in Rust.
+Skyline sparse matrix linear solver in Rust. Parallelization thanks to 
+a nested bisection renumbering.
 
 The skyline format is an old and rusty :-) way to solve sparse linear systems.
 
@@ -14,6 +15,21 @@ See for instance (among many other authors)
 }
 ```
 
+For a starting point to the nested bisection method, you can see:
+
+```bibtex
+@article{george1973nested,
+  title={Nested dissection of a regular finite element mesh},
+  author={George, Alan},
+  journal={SIAM Journal on Numerical Analysis},
+  volume={10},
+  number={2},
+  pages={345--363},
+  year={1973},
+  publisher={SIAM}
+}
+```
+
 A short description of the method is given at:
 
 [https://github.com/phelluy/skyrs/blob/main/doc/skyline.pdf](https://github.com/phelluy/skyrs/blob/main/doc/skyline.pdf)
@@ -23,8 +39,6 @@ Do not forget to add the line
 skyrs = {git = "https://github.com/phelluy/skyrs"}
 ```
 in the `[dependencies]` section of your `Cargo.toml`.
-
-Be careful: for the moment, the library won't work for sparse matrices with non-symmetric profiles (we assume that if A[i][j] != 0 then A[j][i] != 0).
 
 ## Example
 
