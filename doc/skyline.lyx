@@ -338,7 +338,7 @@ for
  
 \begin_inset Formula 
 \[
-U_{k}^{i}\leftarrow U_{k}^{i}-\sum_{0\leq p<i}L_{p}^{i}\cdot U_{k}^{p}
+U_{k}^{i}\leftarrow U_{k}^{i}-\sum_{0\leq p<i}L_{p}^{i}U_{k}^{p}
 \]
 
 \end_inset
@@ -542,7 +542,7 @@ x^{i}=\frac{1}{U_{i}^{i}}\left(y^{i}-\sum_{i+1\leq j<n}U_{j}^{i}x^{j}\right)
 or
 \begin_inset Formula 
 \[
-x^{i}=\frac{1}{U_{i}^{i}}\left(y^{i}-U_{i+1\ldots n}^{i}x^{i+1\ldots n}\right)
+x^{i}=\frac{1}{U_{i}^{i}}\left(y^{i}-U_{i+1\ldots n}^{i}\cdot x^{i+1\ldots n}\right)
 \]
 
 \end_inset
@@ -551,7 +551,7 @@ x^{i}=\frac{1}{U_{i}^{i}}\left(y^{i}-U_{i+1\ldots n}^{i}x^{i+1\ldots n}\right)
 \end_layout
 
 \begin_layout Section
-Sequential implémentation for sparse matrices
+Sequential implementation for sparse matrices
 \end_layout
 
 \begin_layout Subsection
