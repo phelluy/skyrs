@@ -11,7 +11,7 @@ fn main() {
     ////////////////// Dirichlet ////////////////////
     let lx = 2.;
     let ly = 1.;
-    let nx = 600;
+    let nx = 400;
     let ny = 200;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
@@ -54,7 +54,7 @@ fn main() {
     plotpy(xp, yp, m.get_sigma());
 
     println!("Matrix plot...");
-    m.plot(200);
+    m.plot(100);
 
     /////////////// Neumann //////////////////////////////
 

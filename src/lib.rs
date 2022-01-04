@@ -308,7 +308,7 @@ impl Sky {
     /// first apply a BFS on this range,
     /// then splits the nodes into two and
     /// puts the middle nodes at the end.
-    /// Returns the starts of the three collections of nodes.
+    /// Returns the boundaries of the three collections of nodes.
     pub fn bisection_bfs(&mut self, nmin: usize, nmax: usize) -> (usize, usize, usize, usize) {
         let n = self.nrows;
         assert_eq!(n, self.ncols);
@@ -327,6 +327,11 @@ impl Sky {
 
         // middle point for cutting the list
         let mid = nmin + (nmax - nmin) / 2;
+
+        // for loc in nmin..nmax {
+        //     let js = self.inv_sigma[loc];
+        //     permut.push(js);
+        // }
 
         // now start a bfs on a possibly non-connected
         // sub-graph
@@ -350,9 +355,10 @@ impl Sky {
                     permut.push(js);
                     let jindex = nmin + permut.len() - 1;
                     // mark boundary nodes
-                    // <---- THERE IS A BUG HERE ------------>
+                    // <---- THERE IS A DEFAULT HERE ------------>
                     // we assume wrongly that the non zero terms
                     // are disposed symmetrically...
+                    // works only if coo_sym has been called before
                     if loc < mid && jindex >= mid {
                         cross[js - nmin] = true;
                     }
@@ -373,7 +379,7 @@ impl Sky {
             permut[i - nmin] = self.sigma[permut[i - nmin]];
         }
 
-        self.sigma[nmin..nmax].clone_from_slice(&permut[..(nmax - nmin)]);
+        self.sigma[nmin..nmax].clone_from_slice(&permut[0..(nmax - nmin)]);
 
         //update inverse permutation
         for i in nmin..nmax {
@@ -384,13 +390,76 @@ impl Sky {
         (nmin, n0, n1, n2)
     }
 
+    /// Reorders the nodes in the range nmin..nmax:
+    /// first splits the nodes into two
+    /// thanks to metis partitioner.
+    /// Detect the interface nodes and put them at the end.
+    /// Returns the boundaries of the three collections of nodes.
+    pub fn bisection_metis(&mut self, nmin: usize, nmax: usize) -> (usize, usize, usize, usize) {
+        // split
+        let mid = nmin + (nmax - nmin) / 2;
+        let mut split: Vec<usize> = (0..nmax - nmin)
+            .map(|is| if is + nmin < mid { 0 } else { 1 })
+            .collect();
+        // detect boundary nodes
+        for is in nmin..nmax {
+            let i = self.sigma[is];
+            for vois in self.rowstart[i]..self.rowstart[i + 1] {
+                let (_, j, _) = self.coo[vois];
+                let js = self.inv_sigma[j];
+                //println!("permut={:?} js={}", self.sigma, js);
+                if js < nmax && js >= nmin {
+                    if split[is - nmin] == 0 && split[js - nmin] != 0 {
+                        split[js - nmin] = 2;
+                    }
+                }
+            }
+        }
+        // construct permutation
+        let mut permut: Vec<usize> = vec![];
+        let mut n1 = 0;
+        split.iter().enumerate().for_each(|(is, sp)| {
+            if *sp == 0 {
+                permut.push(is + nmin);
+                n1 += 1;
+            }
+        });
+        let mut n2 = n1;
+        split.iter().enumerate().for_each(|(is, sp)| {
+            if *sp == 1 {
+                permut.push(is + nmin);
+                n2 += 1;
+            }
+        });
+        let mut n3 = n2;
+        split.iter().enumerate().for_each(|(is, sp)| {
+            if *sp == 2 {
+                permut.push(is + nmin);
+                n3 += 1;
+            }
+        });
+        assert_eq!(n3+nmin, nmax);
+
+        // update the global permutation
+        for i in nmin..nmax {
+            permut[i - nmin] = self.sigma[permut[i - nmin]];
+        }
+
+        self.sigma[nmin..nmax].clone_from_slice(&permut[0..(nmax - nmin)]);
+
+        //update inverse permutation
+        for i in nmin..nmax {
+            self.inv_sigma[self.sigma[i]] = i;
+        }
+        (nmin, n1+nmin, n2+nmin, nmax)
+    }
+
     /// Recurses the above algorithm until each matrix is small enough.
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 2;
-        if nmax - nmin > (n / ncpus).max(8) {
-            //  if nmax - nmin > 8 {
+        let ncpus = 2; // more seems to be slower :-(
+        if nmax - nmin > (n / ncpus) {
             let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
             self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));
             self.color[nmin..n0]
