@@ -1,6 +1,7 @@
 use rayon::prelude::*;
 use std::collections::HashMap;
 
+
 /// Sparse matrix with skyline storage
 /// # Examples
 /// ```
@@ -90,25 +91,34 @@ fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
 }
 
 /// Convert a graph in coordinate format to ajency lists
-fn coo_to_adj(coo: Vec<(usize,usize)>) -> (Vec<usize>,Vec<usize>) {
+fn coo_split(mut coo: Vec<(usize, usize)>) -> Vec<i32> {
     coo.par_sort_unstable_by(|(i1, j1), (i2, j2)| (i1, j1).cmp(&(i2, j2)));
-    let row = vec![];
-    let rowstart = vec![];
-    let mut count = 0;
+    let mut row = vec![];
+    let mut rowstart = vec![];
+    let mut count: usize = 0;
     rowstart.push(0);
-    let mut (iprev,_) = coo[0];
-    coo.iter().for_each(|(i,j)|{
-        count += 1;
-        if iprev != i {
-            rowstart.push(count)
-            iprev = i;
+    let (mut iprev, _) = coo[0];
+    coo.iter().for_each(|(i, j)| {
+        if iprev != *i {
+            rowstart.push(count as i32);
+            iprev = *i;
         }
-        row.push(j);
+        row.push(*j as i32);
+        count += 1;
     });
-    rowstart.push(count);
-    println!("coo={:?} row={:?} rowstart={:?}",coo,row,rowstart);
-    panic!();
-    (row,rowstart)
+    rowstart.push(count as i32);
+    // println!("coo={:?} row={:?} rowstart={:?}",coo,row,rowstart);
+    // println!("count={} {}",count, coo.len());
+    let mut part = vec![0; rowstart.len() - 1];
+    
+    use metis::Graph;
+    Graph::new(1, 2, rowstart.as_mut_slice(), row.as_mut_slice())
+        .part_recursive(&mut part)
+        .unwrap();
+
+    //println!("part={:?}",part);
+    //panic!();
+    part
 }
 
 /// Optimized scalar products of a sub-row of L
@@ -414,16 +424,28 @@ impl Sky {
 
     /// Reorders the nodes in the range nmin..nmax:
     /// first splits the nodes into two
-    /// thanks to metis partitioner.
+    /// coo_splitmetis partitioner.
     /// Detect the interface nodes and put them at the end.
     /// Returns the boundaries of the three collections of nodes.
     pub fn bisection_metis(&mut self, nmin: usize, nmax: usize) -> (usize, usize, usize, usize) {
-        coo_to_adj(coo.clone());
+        let mut coos = vec![];
+        for is in nmin..nmax {
+            let i = self.sigma[is];
+            for k in self.rowstart[i]..self.rowstart[i + 1] {
+                let (_, j, _) = self.coo[k];
+                let js = self.inv_sigma[j];
+                if nmin <= js && js < nmax {
+                    coos.push((is - nmin, js - nmin));
+                }
+            }
+        }
+        //let coos = self.coo.iter().map(|(i,j,_)| (*i,*j)).collect();
         // split
-        let mid = nmin + (nmax - nmin) / 2;
-        let mut split: Vec<usize> = (0..nmax - nmin)
-            .map(|is| if is + nmin < mid { 0 } else { 1 })
-            .collect();
+        let mut split = coo_split(coos);
+        // let mid = nmin + (nmax - nmin) / 2;
+        // let mut split: Vec<usize> = (0..nmax - nmin)
+        //     .map(|is| if is + nmin < mid { 0 } else { 1 })
+        //     .collect();
         // detect boundary nodes
         for is in nmin..nmax {
             let i = self.sigma[is];
@@ -461,7 +483,7 @@ impl Sky {
                 n3 += 1;
             }
         });
-        assert_eq!(n3+nmin, nmax);
+        assert_eq!(n3 + nmin, nmax);
 
         // update the global permutation
         for i in nmin..nmax {
@@ -474,11 +496,7 @@ impl Sky {
         for i in nmin..nmax {
             self.inv_sigma[self.sigma[i]] = i;
         }
-        (nmin, n1+nmin, n2+nmin, nmax)
-    }
-
-    fn split(&mut self, nmin: usize, nmax: usize) -> Vec<usize> {
-        vec![]
+        (nmin, n1 + nmin, n2 + nmin, nmax)
     }
 
     /// Recurses the above algorithm until each matrix is small enough.
@@ -486,7 +504,7 @@ impl Sky {
         let n = self.nrows;
         // estimate of the final domains
         let ncpus = 2; // more seems to be slower :-(
-        if nmax - nmin > (n / ncpus) {
+        if nmax - nmin > n / ncpus {
             let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
             self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));
             self.color[nmin..n0]
