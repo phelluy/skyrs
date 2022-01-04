@@ -89,6 +89,28 @@ fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
     }
 }
 
+/// Convert a graph in coordinate format to ajency lists
+fn coo_to_adj(coo: Vec<(usize,usize)>) -> (Vec<usize>,Vec<usize>) {
+    coo.par_sort_unstable_by(|(i1, j1), (i2, j2)| (i1, j1).cmp(&(i2, j2)));
+    let row = vec![];
+    let rowstart = vec![];
+    let mut count = 0;
+    rowstart.push(0);
+    let mut (iprev,_) = coo[0];
+    coo.iter().for_each(|(i,j)|{
+        count += 1;
+        if iprev != i {
+            rowstart.push(count)
+            iprev = i;
+        }
+        row.push(j);
+    });
+    rowstart.push(count);
+    println!("coo={:?} row={:?} rowstart={:?}",coo,row,rowstart);
+    panic!();
+    (row,rowstart)
+}
+
 /// Optimized scalar products of a sub-row of L
 /// with a sub-column of U (used in the L triangulation).
 /// Uses a BLAS library (which has to be installed on the system).
@@ -396,6 +418,7 @@ impl Sky {
     /// Detect the interface nodes and put them at the end.
     /// Returns the boundaries of the three collections of nodes.
     pub fn bisection_metis(&mut self, nmin: usize, nmax: usize) -> (usize, usize, usize, usize) {
+        coo_to_adj(coo.clone());
         // split
         let mid = nmin + (nmax - nmin) / 2;
         let mut split: Vec<usize> = (0..nmax - nmin)
@@ -452,6 +475,10 @@ impl Sky {
             self.inv_sigma[self.sigma[i]] = i;
         }
         (nmin, n1+nmin, n2+nmin, nmax)
+    }
+
+    fn split(&mut self, nmin: usize, nmax: usize) -> Vec<usize> {
+        vec![]
     }
 
     /// Recurses the above algorithm until each matrix is small enough.
