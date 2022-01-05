@@ -1,7 +1,6 @@
 use rayon::prelude::*;
 use std::collections::HashMap;
 
-
 /// Sparse matrix with skyline storage
 /// # Examples
 /// ```
@@ -110,7 +109,6 @@ fn coo_split(mut coo: Vec<(usize, usize)>) -> Vec<i32> {
     // println!("coo={:?} row={:?} rowstart={:?}",coo,row,rowstart);
     // println!("count={} {}",count, coo.len());
     let mut part = vec![0; rowstart.len() - 1];
-    
     use metis::Graph;
     Graph::new(1, 2, rowstart.as_mut_slice(), row.as_mut_slice())
         .part_recursive(&mut part)
@@ -119,6 +117,126 @@ fn coo_split(mut coo: Vec<(usize, usize)>) -> Vec<i32> {
     //println!("part={:?}",part);
     //panic!();
     part
+}
+
+/// Renumbers of graph given in coo format
+/// according to a decomposition described in split.
+/// The split vector items can take the value 0, 1 or 2.
+/// Performs a BFS on each part 0, 1 or 2.
+/// Returns the permutation of this renumbering.
+fn coo_renum(mut coo: Vec<(usize, usize)>, split: Vec<i32>) -> Vec<usize> {
+    // for each node, count its neighbors
+    let mut n = 0;
+    for (i, j) in coo.iter() {
+        n = n.max((*i).max(*j));
+    }
+    n += 1;
+    let mut neighb = vec![0; n];
+    for (i, j) in coo.iter() {
+        neighb[*i] += 1;
+    }
+    // sort the adjacency list by node index and number of neighbours
+    coo.par_sort_unstable_by(|(i1, j1), (i2, j2)| {
+        (i1, neighb[*j1], j1).cmp(&(i2, neighb[*j2], j2))
+    });
+
+    let mut rowstart: Vec<usize> = vec![];
+    rowstart.push(0);
+    let mut count = 0;
+
+    rowstart.push(0);
+    let (mut iprev, _) = coo[0];
+    coo.iter().for_each(|(i, j)| {
+        if iprev != *i {
+            rowstart.push(count);
+            iprev = *i;
+        }
+        count += 1;
+    });
+    rowstart.push(count);
+
+
+    // number of nodes in each domain
+    let n0: usize = split.iter().map(|s| if *s == 0 { 1 } else { 0 }).sum();
+    let n1: usize = split.iter().map(|s| if *s == 1 { 1 } else { 0 }).sum();
+    let n2: usize = split.iter().map(|s| if *s == 2 { 1 } else { 0 }).sum();
+
+    println!("n0={} n1={} n2={}", n0, n1, n2);
+
+    // find a node at the interface with a minimal number of
+    // neighbours
+    let mut start = 0;
+    let mut nb = std::usize::MAX;
+    for (k, nbk) in neighb.iter().enumerate() {
+        if *nbk < nb && split[k] == 2 {
+            start = k;
+            nb = *nbk;
+        }
+    }
+
+    let mut permut: Vec<usize> = vec![];
+    let mut visited: Vec<bool> = vec![false; n];
+    // the starting node is visited
+    //visited[start] = true;
+    //permut.push(start);
+
+    for (k,s) in split.iter().enumerate() {
+        if *s == 2 {
+            permut.push(k);
+            visited[k] = true;
+        }
+    }
+
+    //now performs the BFS
+    for loc in 0..n {
+        // if nodes are exhausted take the first one which is not
+        // visited. This may happen because the sub-graphs
+        // are not necessarily connected...
+        if permut.len() <= loc {
+            let rs = visited.iter().position(|visited| !visited);
+            let rs = rs.unwrap();
+            permut.push(rs);
+            visited[rs] = true;
+        };
+        // visit the nodes touching physical node sloc
+        for i in rowstart[loc]..rowstart[loc + 1] {
+            let (_, j) = coo[i]; // j: physical index
+            if !visited[j] {
+                visited[j] = true;
+                permut.push(j);
+            }
+        }
+    }
+    // dispatch into the three permutations
+    let mut permut0: Vec<usize> = vec![];
+    let mut permut1: Vec<usize> = vec![];
+    let mut permut2: Vec<usize> = vec![];
+
+    for k in permut.iter() {
+        match split[*k] {
+            0 => permut0.push(*k),
+            1 => permut1.push(*k),
+            2 => permut2.push(*k),
+            _ => panic!(),
+        }
+    }
+
+    // println!("permut={:?}", permut);
+    // println!("permut0={:?}", permut0);
+    // println!("permut1={:?}", permut1);
+    // println!("permut2={:?}", permut2);
+    permut0.reverse();
+    permut1.reverse();
+    permut = vec![];
+    permut.append(&mut permut0);
+    permut.append(&mut permut1);
+    permut.append(&mut permut2);
+    // println!("permut={:?}", permut);
+    // println!("permut0={:?}", permut0);
+    // println!("permut1={:?}", permut1);
+    // println!("permut2={:?}", permut2);
+    // panic!();
+    permut
 }
 
 /// Optimized scalar products of a sub-row of L
@@ -441,7 +559,7 @@ impl Sky {
         }
         //let coos = self.coo.iter().map(|(i,j,_)| (*i,*j)).collect();
         // split
-        let mut split = coo_split(coos);
+        let mut split = coo_split(coos.clone());
         // let mid = nmin + (nmax - nmin) / 2;
         // let mut split: Vec<usize> = (0..nmax - nmin)
         //     .map(|is| if is + nmin < mid { 0 } else { 1 })
@@ -461,33 +579,42 @@ impl Sky {
             }
         }
         // construct permutation
-        let mut permut: Vec<usize> = vec![];
-        let mut n1 = 0;
-        split.iter().enumerate().for_each(|(is, sp)| {
-            if *sp == 0 {
-                permut.push(is + nmin);
-                n1 += 1;
-            }
-        });
-        let mut n2 = n1;
-        split.iter().enumerate().for_each(|(is, sp)| {
-            if *sp == 1 {
-                permut.push(is + nmin);
-                n2 += 1;
-            }
-        });
-        let mut n3 = n2;
-        split.iter().enumerate().for_each(|(is, sp)| {
-            if *sp == 2 {
-                permut.push(is + nmin);
-                n3 += 1;
-            }
-        });
-        assert_eq!(n3 + nmin, nmax);
+        let mut permut = coo_renum(coos, split.clone());
+        // let mut permut: Vec<usize> = vec![];
+        // let mut n1 = 0;
+        // split.iter().enumerate().for_each(|(is, sp)| {
+        //     if *sp == 0 {
+        //         permut.push(is + nmin);
+        //         n1 += 1;
+        //     }
+        // });
+        // let mut n2 = n1;
+        // split.iter().enumerate().for_each(|(is, sp)| {
+        //     if *sp == 1 {
+        //         permut.push(is + nmin);
+        //         n2 += 1;
+        //     }
+        // });
+        // let mut n3 = n2;
+        // split.iter().enumerate().for_each(|(is, sp)| {
+        //     if *sp == 2 {
+        //         permut.push(is + nmin);
+        //         n3 += 1;
+        //     }
+        // });
+        // assert_eq!(n3 + nmin, nmax);
+        // number of nodes in each domain
+        let n1: usize = split.iter().map(|s| if *s == 0 { 1 } else { 0 }).sum();
+        let mut n2: usize = split.iter().map(|s| if *s == 1 { 1 } else { 0 }).sum();
+        n2 += n1;
+        let mut n3: usize = split.iter().map(|s| if *s == 2 { 1 } else { 0 }).sum();
+        n3 += n2;
+
+        assert_eq!(nmax, n3+nmin);
 
         // update the global permutation
         for i in nmin..nmax {
-            permut[i - nmin] = self.sigma[permut[i - nmin]];
+            permut[i - nmin] = self.sigma[permut[i - nmin]+nmin];
         }
 
         self.sigma[nmin..nmax].clone_from_slice(&permut[0..(nmax - nmin)]);
@@ -503,9 +630,9 @@ impl Sky {
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 2; // more seems to be slower :-(
+        let ncpus = 3; // more seems to be slower :-(
         if nmax - nmin > n / ncpus {
-            let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
+            let (nb, n0, n1, n2) = self.bisection_metis(nmin, nmax);
             self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));
             self.color[nmin..n0]
                 .iter_mut()
