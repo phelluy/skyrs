@@ -11,8 +11,8 @@ fn main() {
     ////////////////// Dirichlet ////////////////////
     let lx = 2.;
     let ly = 1.;
-    let nx = 400;
-    let ny = 200;
+    let nx = 300;
+    let ny = 300;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
 
@@ -24,21 +24,16 @@ fn main() {
     println!("Compress...");
     let mut m = skyrs::Sky::new(vecval);
     println!("Renumbering...");
-    //m.bisection_iter(0, n);
-    //m.print_bisection();
-    //panic!();
-    //m.coo_to_sky();
-    // m.plot(400);
-    // panic!();
-    //m.bfs_renumber(0);
 
     println!("Solving...");
     let f0 = vec![1.; n];
-    //let f0: Vec<f64> = (0..n).map(|i| i as f64 / n as f64 ).collect();
+
     use std::time::Instant;
+
     let start = Instant::now();
     let zp = m.solve(f0.clone()).unwrap();
     let duration = start.elapsed();
+
     println!("Solving time: {:?}", duration);
     println!("nnz={}", m.get_nnz());
 
@@ -85,7 +80,6 @@ fn main() {
         let nf: f64 = f.par_iter().map(|f| *f * *f).sum();
         let nf = (nf / n as f64).sqrt();
         a = nf;
-        //println!("nf={} a={} b={}",nf,a,b);
         f.par_iter_mut().for_each(|f| *f /= nf);
     }
 
@@ -105,7 +99,6 @@ fn main() {
 
     println!("OK");
 
-    // plot
 }
 
 #[allow(dead_code)]
