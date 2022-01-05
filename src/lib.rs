@@ -198,8 +198,9 @@ fn coo_renum(mut coo: Vec<(usize, usize)>, split: Vec<i32>) -> Vec<usize> {
             permut.push(rs);
             visited[rs] = true;
         };
+        let sloc = permut[loc];
         // visit the nodes touching physical node sloc
-        for i in rowstart[loc]..rowstart[loc + 1] {
+        for i in rowstart[sloc]..rowstart[sloc + 1] {
             let (_, j) = coo[i]; // j: physical index
             if !visited[j] {
                 visited[j] = true;
@@ -630,7 +631,7 @@ impl Sky {
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 3; // more seems to be slower :-(
+        let ncpus = 2; // more seems to be slower :-(
         if nmax - nmin > n / ncpus {
             let (nb, n0, n1, n2) = self.bisection_metis(nmin, nmax);
             self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));

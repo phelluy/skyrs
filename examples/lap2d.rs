@@ -11,7 +11,7 @@ fn main() {
     ////////////////// Dirichlet ////////////////////
     let lx = 2.;
     let ly = 1.;
-    let nx = 400;
+    let nx = 600;
     let ny = 200;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
@@ -29,7 +29,7 @@ fn main() {
     //panic!();
     //m.coo_to_sky();
     // m.plot(400);
-    // panic!();
+    // panic!()
     //m.bfs_renumber(0);
 
     println!("Solving...");
