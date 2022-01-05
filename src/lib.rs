@@ -631,7 +631,7 @@ impl Sky {
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 2; // more seems to be slower :-(
+        let ncpus = 16; // more seems to be slower :-(
         if nmax - nmin > n / ncpus {
             let (nb, n0, n1, n2) = self.bisection_metis(nmin, nmax);
             self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));
