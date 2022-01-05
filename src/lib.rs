@@ -634,6 +634,7 @@ impl Sky {
         let ncpus = 2; // more seems to be slower :-(
         if nmax - nmin > n / ncpus {
             let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
+            //let (nb, n0, n1, n2) = self.bisection_metis(nmin, nmax);
             self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));
             self.color[nmin..n0]
                 .iter_mut()
