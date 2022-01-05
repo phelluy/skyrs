@@ -132,7 +132,7 @@ fn coo_renum(mut coo: Vec<(usize, usize)>, split: Vec<i32>) -> Vec<usize> {
     }
     n += 1;
     let mut neighb = vec![0; n];
-    for (i, j) in coo.iter() {
+    for (i, _j) in coo.iter() {
         neighb[*i] += 1;
     }
     // sort the adjacency list by node index and number of neighbours
@@ -146,7 +146,7 @@ fn coo_renum(mut coo: Vec<(usize, usize)>, split: Vec<i32>) -> Vec<usize> {
 
     rowstart.push(0);
     let (mut iprev, _) = coo[0];
-    coo.iter().for_each(|(i, j)| {
+    coo.iter().for_each(|(i, _j)| {
         if iprev != *i {
             rowstart.push(count);
             iprev = *i;
@@ -157,22 +157,22 @@ fn coo_renum(mut coo: Vec<(usize, usize)>, split: Vec<i32>) -> Vec<usize> {
 
 
     // number of nodes in each domain
-    let n0: usize = split.iter().map(|s| if *s == 0 { 1 } else { 0 }).sum();
-    let n1: usize = split.iter().map(|s| if *s == 1 { 1 } else { 0 }).sum();
-    let n2: usize = split.iter().map(|s| if *s == 2 { 1 } else { 0 }).sum();
+    // let n0: usize = split.iter().map(|s| if *s == 0 { 1 } else { 0 }).sum();
+    // let n1: usize = split.iter().map(|s| if *s == 1 { 1 } else { 0 }).sum();
+    // let n2: usize = split.iter().map(|s| if *s == 2 { 1 } else { 0 }).sum();
 
-    println!("n0={} n1={} n2={}", n0, n1, n2);
+    //println!("n0={} n1={} n2={}", n0, n1, n2);
 
     // find a node at the interface with a minimal number of
     // neighbours
-    let mut start = 0;
-    let mut nb = std::usize::MAX;
-    for (k, nbk) in neighb.iter().enumerate() {
-        if *nbk < nb && split[k] == 2 {
-            start = k;
-            nb = *nbk;
-        }
-    }
+    // let mut start = 0;
+    // let mut nb = std::usize::MAX;
+    // for (k, nbk) in neighb.iter().enumerate() {
+    //     if *nbk < nb && split[k] == 2 {
+    //         start = k;
+    //         nb = *nbk;
+    //     }
+    // }
 
     let mut permut: Vec<usize> = vec![];
     let mut visited: Vec<bool> = vec![false; n];
@@ -631,9 +631,9 @@ impl Sky {
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 16; // more seems to be slower :-(
+        let ncpus = 2; // more seems to be slower :-(
         if nmax - nmin > n / ncpus {
-            let (nb, n0, n1, n2) = self.bisection_metis(nmin, nmax);
+            let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
             self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));
             self.color[nmin..n0]
                 .iter_mut()
