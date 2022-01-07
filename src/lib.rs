@@ -66,6 +66,83 @@ const EXP: usize = 2;
 
 const FMT: (usize, usize, usize) = (WIDTH, PREC, EXP);
 
+/// Renumbers of graph given in coo format
+/// Performs a BFS with a numbering of nodes
+/// with less neighbours first
+#[allow(dead_code)]
+fn coo_renum_bfs(mut coo: Vec<(usize, usize)>) -> Vec<usize> {
+    // for each node, count its neighbors
+    let mut n = 0;
+    for (i, j) in coo.iter() {
+        n = n.max((*i).max(*j));
+    }
+    n += 1;
+    let mut neighb = vec![0; n];
+    for (i, _j) in coo.iter() {
+        neighb[*i] += 1;
+    }
+
+
+    //sort the adjacency list by node index and number of neighbours
+    coo.par_sort_unstable_by(|(i1, j1), (i2, j2)| {
+        (i1, neighb[*j1], j1).cmp(&(i2, neighb[*j2], j2))
+    });
+
+    let mut rowstart: Vec<usize> = vec![];
+    rowstart.push(0);
+    let mut count = 0;
+
+    rowstart.push(0);
+    let (mut iprev, _) = coo[0];
+    coo.iter().for_each(|(i, _j)| {
+        if iprev != *i {
+            rowstart.push(count);
+            iprev = *i;
+        }
+        count += 1;
+    });
+    rowstart.push(count);
+
+
+    let mut permut: Vec<usize> = vec![];
+    let mut visited: Vec<bool> = vec![false; n];
+    // the starting node is visited
+    let start = 0;
+    visited[start] = true;
+    permut.push(start);
+
+    // for (k,s) in split.iter().enumerate() {
+    //     if *s == 2 {
+    //         permut.push(k);
+    //         visited[k] = true;
+    //     }
+    // }
+
+    //now performs the BFS
+    for loc in 0..n {
+        // if nodes are exhausted take the first one which is not
+        // visited. This may happen because the sub-graphs
+        // are not necessarily connected...
+        if permut.len() <= loc {
+            let rs = visited.iter().position(|visited| !visited);
+            let rs = rs.unwrap();
+            permut.push(rs);
+            visited[rs] = true;
+        };
+        let sloc = permut[loc];
+        // visit the nodes touching physical node sloc
+        for i in rowstart[sloc]..rowstart[sloc + 1] {
+            let (_, j) = coo[i]; // j: physical index
+            if !visited[j] {
+                visited[j] = true;
+                permut.push(j);
+            }
+        }
+    }
+    permut
+}
+
+
 /// Constant size formatter: useful for debug.
 fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
     let width = fmt.0;
@@ -501,6 +578,18 @@ impl Sky {
         permut[0..n].reverse();
         self.set_permut(permut);
     }
+    // pub fn bfs_renumber(&mut self, start: usize) {
+    //     let n = self.nrows;
+    //     assert_eq!(n, self.ncols);
+
+    //     let coos: Vec<(usize,usize)> = self.coo.iter().map(|(i,j,_v)| (*i,*j)).collect();
+
+    //     let mut permut = coo_renum_bfs(coos.clone());
+
+    //     assert!(permut.len() == n, "The graph matrix is not connected.");
+    //     permut[0..n].reverse();
+    //     self.set_permut(permut);
+    // }
 
     /// Defines a new nodes permutation.
     /// This invalidates the LU decomposition.
