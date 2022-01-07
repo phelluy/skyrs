@@ -488,7 +488,8 @@ impl Sky {
         permut.push(start);
 
         for loc in 0..n {
-            for i in self.rowstart[loc]..self.rowstart[loc + 1] {
+            let sloc = permut[loc];
+            for i in self.rowstart[sloc]..self.rowstart[sloc + 1] {
                 let (_, j, _) = self.coo[i];
                 if !visited[j] {
                     visited[j] = true;
@@ -1022,8 +1023,8 @@ impl Sky {
         if m == 0 {
             // necessary for a correct bfs search
             self.coo_sym();
-            self.bisection_iter(0, self.nrows);
-            //self.bfs_renumber(0);
+            //self.bisection_iter(0, self.nrows);
+            self.bfs_renumber(0);
             self.coo_to_sky();
             self.factolu_par();
             //println!("coo len={}",self.coo.len());

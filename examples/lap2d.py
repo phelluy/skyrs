@@ -100,8 +100,8 @@ def solve_lap(Lx, Nx, Ny, f):
     return u
 
 
-Nx = 300
-Ny = 300
+Nx = 1200
+Ny = 200
 Lx = 1
 
 f = fgrid(Lx, Nx, Ny, force)
