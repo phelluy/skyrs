@@ -10,9 +10,9 @@ use rayon::prelude::*;
 fn main() {
     ////////////////// Dirichlet ////////////////////
     let lx = 2.;
-    let ly = 1.;
-    let nx = 300;
-    let ny = 300;
+    let ly = 2.;
+    let nx = 100;
+    let ny = 100;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
 

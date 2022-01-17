@@ -452,7 +452,7 @@ impl Sky {
             color,
             bisection,
         };
-        sky.compress();
+        sky.compress();    
         sky
     }
     /// Reorders the nodes in the range nmin..nmax:
