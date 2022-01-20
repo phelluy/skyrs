@@ -1113,7 +1113,7 @@ impl Sky {
             // necessary for a correct bfs search
             self.coo_sym();
             //self.bisection_iter(0, self.nrows);
-            self.bfs_renumber(0);
+            //self.bfs_renumber(0);
             self.coo_to_sky();
             self.factolu_par();
             //println!("coo len={}",self.coo.len());
