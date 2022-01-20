@@ -535,7 +535,7 @@ impl Sky {
     pub fn bisection_iter(&mut self, nmin: usize, nmax: usize) {
         let n = self.nrows;
         // estimate of the final domains
-        let ncpus = 2; // more seems to be slower :-(
+        let ncpus = 1; // more seems to be slower :-(
         if nmax - nmin > (n / ncpus) {
             let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
             self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));
@@ -1112,7 +1112,7 @@ impl Sky {
         if m == 0 {
             // necessary for a correct bfs search
             self.coo_sym();
-            //self.bisection_iter(0, self.nrows);
+            self.bisection_iter(0, self.nrows);
             //self.bfs_renumber(0);
             self.coo_to_sky();
             self.factolu_par();
