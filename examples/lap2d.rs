@@ -36,7 +36,7 @@ fn main() {
     println!("Solving time: {:?}", duration);
     println!("nnz={}", m.get_nnz());
 
-    let f = m.vec_mult(&zp);
+    let f = m.dot(&zp);
 
     let err: f64 = f.iter().zip(f0.iter()).map(|(f, f0)| (f - f0).abs()).sum();
     println!("err={:e}", err / n as f64);
@@ -74,7 +74,7 @@ fn main() {
 
     // largest eigenvalue by the power method
     for _iter in 0..nx.max(ny) {
-        f = m.vec_mult(&f);
+        f = m.dot(&f);
         zero_mean(&mut f);
         let nf: f64 = f.par_iter().map(|f| *f * *f).sum();
         let nf = (nf / n as f64).sqrt();

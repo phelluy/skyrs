@@ -82,7 +82,6 @@ fn coo_renum_bfs(mut coo: Vec<(usize, usize)>) -> Vec<usize> {
         neighb[*i] += 1;
     }
 
-
     //sort the adjacency list by node index and number of neighbours
     coo.par_sort_unstable_by(|(i1, j1), (i2, j2)| {
         (i1, neighb[*j1], j1).cmp(&(i2, neighb[*j2], j2))
@@ -102,7 +101,6 @@ fn coo_renum_bfs(mut coo: Vec<(usize, usize)>) -> Vec<usize> {
         count += 1;
     });
     rowstart.push(count);
-
 
     let mut permut: Vec<usize> = vec![];
     let mut visited: Vec<bool> = vec![false; n];
@@ -141,7 +139,6 @@ fn coo_renum_bfs(mut coo: Vec<(usize, usize)>) -> Vec<usize> {
     }
     permut
 }
-
 
 /// Constant size formatter: useful for debug.
 fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
@@ -515,7 +512,7 @@ impl Sky {
                 n3 += 1;
             }
         });
-        assert_eq!(n3+nmin, nmax);
+        assert_eq!(n3 + nmin, nmax);
 
         // update the global permutation
         for i in nmin..nmax {
@@ -528,7 +525,7 @@ impl Sky {
         for i in nmin..nmax {
             self.inv_sigma[self.sigma[i]] = i;
         }
-        (nmin, n1+nmin, n2+nmin, nmax)
+        (nmin, n1 + nmin, n2 + nmin, nmax)
     }
 
     /// Recurses the above algorithm until each matrix is small enough.
@@ -790,12 +787,16 @@ impl Sky {
         self.utab[j][i - self.sky[j]] = val;
     }
 
-    /// Add fake zeros for symmetrizing the structure of the matrix
+    /// Add fake zeros for symmetrizing the structure of the matrix.
     fn coo_sym(&mut self) {
         let nz0 = self.coo.len();
         let mut _count = 0;
+        let mut ncols = 0;
+        let mut nrows = 0;
         for k in 0..nz0 {
             let (i, j, _v) = self.coo[k];
+            ncols = ncols.max(j);
+            nrows = ncols.max(i);
             // search a non-zero value of the form (j,i,v)
             let jstart = self.rowstart[j];
             let jend = self.rowstart[j + 1];
@@ -810,7 +811,15 @@ impl Sky {
                 Some(_) => {}
             }
         }
-        //println!("Add {} elem for sym", count);
+        //println!("Add {} elem for sym", _count);
+        // then add a few extradiagonal terms
+        // for ensuring a connected graph
+        assert_eq!(nrows, ncols, "The matrix must be a square matrix");
+        // let n = nrows + 1;
+        // for i in 0..n-1  {
+        //     self.coo.push((i, i + 1, 0.));
+        //     self.coo.push((i + 1, i, 0.));
+        // }
         self.compress();
     }
 
@@ -918,7 +927,6 @@ impl Sky {
     pub fn dot(&self, u: &Vec<f64>) -> Vec<f64> {
         self.vec_mult(u)
     }
-
 
     /// Converts the coo array to the skyline format internally.
     pub fn coo_to_sky(&mut self) {
@@ -1175,7 +1183,6 @@ impl Sky {
         Ok(b)
     }
 
-
     /// Performs a LU decomposition on the full matrix
     /// with the Doolittle algorithm.
     /// Not efficient: used only for debug.
@@ -1417,6 +1424,10 @@ fn diagonal() {
         abs_all <= 1e-12
     );
 
+    //warnig: BFS does not work because the 
+    //graph of the diagonal matrix is not connected
+    //let v = sky.solve(u).unwrap();
+    // therefore use the solver without renumbering
     let v = sky.solve_norenum(u).unwrap();
     println!("{:?}", v);
 
@@ -1551,7 +1562,6 @@ fn small_norenum() {
 
     coo.push((4, 9, 0.1));
 
-
     let mut sky = Sky::new(coo.clone());
 
     let u = vec![1.; n];
@@ -1578,7 +1588,6 @@ fn small_norenum() {
     coo.iter().for_each(|(i, j, v)| {
         a[*i][*j] += *v;
     });
-
 
     doolittle_lu(&mut a);
 
@@ -1616,7 +1625,6 @@ fn small_norenum() {
     println!("erreur={}", fmt_f64(erreur, FMT));
     assert!(erreur < 1e-12);
 }
-
 
 // fn main() {
 //     let coo = vec![
