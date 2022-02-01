@@ -1424,7 +1424,7 @@ fn diagonal() {
         abs_all <= 1e-12
     );
 
-    //warning: BFS does not work because the 
+    //warning: BFS does not work because the
     //graph of the diagonal matrix is not connected
     //let v = sky.solve(u).unwrap();
     // therefore use the solver without renumbering
