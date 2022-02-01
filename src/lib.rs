@@ -21,7 +21,7 @@ use std::collections::HashMap;
 /// sky.print_coo();
 ///
 /// let x0 = vec![1., 2., 3.];
-/// let b = sky.vec_mult(&x0);
+/// let b = sky.dot(&x0);
 /// let x = sky.solve(b).unwrap();
 ///
 /// println!("x0={:?}",x0);
@@ -912,6 +912,13 @@ impl Sky {
         });
         v
     }
+
+    /// Matrix vector product using the coo array.
+    /// Parallel version. Alias of the previous function.
+    pub fn dot(&self, u: &Vec<f64>) -> Vec<f64> {
+        self.vec_mult(u)
+    }
+
 
     /// Converts the coo array to the skyline format internally.
     pub fn coo_to_sky(&mut self) {
