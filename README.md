@@ -79,7 +79,7 @@ sequential. I will try to improve the parallel version when I will have time.
  sky.print_coo();
  
  let x0 = vec![1., 2., 3.];
- let b = sky.vec_mult(&x0);
+ let b = sky.dot(&x0);
  let x = sky.solve(b).unwrap();
  
  println!("x0={:?}",x0);
