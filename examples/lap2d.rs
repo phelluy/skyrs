@@ -11,8 +11,8 @@ fn main() {
     ////////////////// Dirichlet ////////////////////
     let lx = 2.;
     let ly = 1.;
-    let nx = 200;
-    let ny = 200;
+    let nx = 300;
+    let ny = 100;
     println!("Dirichlet assembly...");
     let vecval = dirichlet(lx, ly, nx, ny);
 
@@ -23,7 +23,6 @@ fn main() {
     // linear system resolution
     println!("Compress...");
     let mut m = skyrs::Sky::new(vecval);
-    println!("Renumbering...");
 
     println!("Solving...");
     let f0 = vec![1.; n];

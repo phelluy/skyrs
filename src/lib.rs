@@ -938,6 +938,7 @@ impl Sky {
         // symmetric profile
         // self.prof = prof.iter().zip(sky.iter()).map(|(p,s)| (*p).min(*s)).collect();
         // self.sky = self.prof.clone();
+
         // allocate space for the row of L
         // WITHOUT the diagonal terms
         for i in 0..n {
@@ -1112,8 +1113,8 @@ impl Sky {
         if m == 0 {
             // necessary for a correct bfs search
             self.coo_sym();
-            self.bisection_iter(0, self.nrows);
-            //self.bfs_renumber(0);
+            //self.bisection_iter(0, self.nrows);
+            self.bfs_renumber(0);
             self.coo_to_sky();
             self.factolu_par();
             //println!("coo len={}",self.coo.len());
@@ -1138,6 +1139,35 @@ impl Sky {
         bp = (0..m).map(|i| b[self.inv_sigma[i]]).collect();
         Ok(bp)
     }
+
+    /// Triangular solves.
+    /// Calls the LU decomposition before if this is not yet done.
+    /// No renumbering of the unknowns is performed. This allows to keep
+    /// the numbering decided by the user
+    pub fn solve_norenum(&mut self, mut b: Vec<f64>) -> Result<Vec<f64>, String> {
+        let m = self.prof.len();
+        if m == 0 {
+            self.coo_to_sky();
+            self.factolu_par();
+        }
+        // descente
+        let n = self.nrows;
+        for i in 0..n {
+            for p in self.prof[i]..i {
+                b[i] -= self.get_l(i, p) * b[p]; // self.ltab[i][p - self.prof[i]]
+            }
+        }
+        // remontée
+        b[n - 1] /= self.get_u(n - 1, n - 1);
+        for j in (0..n - 1).rev() {
+            for i in self.sky[j + 1]..j + 1 {
+                b[i] -= self.get_u(i, j + 1) * b[j + 1];
+            }
+            b[j] /= self.get_u(j, j);
+        }
+        Ok(b)
+    }
+
 
     /// Performs a LU decomposition on the full matrix
     /// with the Doolittle algorithm.
@@ -1491,6 +1521,95 @@ fn small_matrix() {
     println!("erreur={}", fmt_f64(erreur, FMT));
     assert!(erreur < 1e-12);
 }
+
+#[test]
+fn small_norenum() {
+    let mut coo: Vec<(usize, usize, f64)> = vec![];
+
+    let n = 10;
+
+    for i in 0..n {
+        coo.push((i, i, 2.));
+    }
+    for i in 0..n - 1 {
+        coo.push((i, i + 1, -1.));
+        coo.push((i + 1, i, -1.));
+    }
+
+    // coo.push((0, 0, 0.));
+    // coo.push((n - 1, n - 1, 0.));
+
+    coo.push((3, 0, 0.1));
+    coo.push((1, 4, 0.1));
+
+    coo.push((4, 9, 0.1));
+
+
+    let mut sky = Sky::new(coo.clone());
+
+    let u = vec![1.; n];
+
+    let v1 = sky.vec_mult(&u);
+
+    println!("Au={:?}", v1);
+
+    sky.compress();
+
+    let v2 = sky.vec_mult(&u);
+    println!("Au={:?}", v2);
+
+    v1.iter()
+        .zip(v2.iter())
+        .for_each(|(v1, v2)| assert!((*v1 - *v2).abs() < 1e-14));
+
+    sky.coo_to_sky();
+    sky.factolu_par();
+
+    // comparison with the full solver
+    let mut a: Vec<Vec<f64>> = vec![vec![0. as f64; n]; n];
+
+    coo.iter().for_each(|(i, j, v)| {
+        a[*i][*j] += *v;
+    });
+
+
+    doolittle_lu(&mut a);
+
+    let mut erreur = 0.;
+
+    println!("LU sparse");
+    sky.print_lu();
+
+    println!("LU full");
+    for i in 0..n {
+        for j in 0..n {
+            print!("{} ", fmt_f64(a[i][j], FMT));
+            erreur += (a[i][j] - sky.get_lu(i, j)).abs();
+        }
+        println!();
+    }
+    println!("Facto error={}", fmt_f64(erreur, FMT));
+    assert!(erreur < 1e-12);
+
+    let x0 = (1..n + 1).map(|i| i as f64).collect();
+
+    let b = sky.vec_mult(&x0);
+
+    let x = sky.solve_norenum(b.clone()).unwrap();
+
+    println!("x0={:?}", x0);
+    println!("x={:?}", x);
+
+    let erreur: f64 = x0
+        .iter()
+        .zip(x.iter())
+        .map(|(&x0, &x)| (x - x0).abs())
+        .sum();
+
+    println!("erreur={}", fmt_f64(erreur, FMT));
+    assert!(erreur < 1e-12);
+}
+
 
 // fn main() {
 //     let coo = vec![
