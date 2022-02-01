@@ -1410,7 +1410,7 @@ fn diagonal() {
         abs_all <= 1e-12
     );
 
-    let v = sky.solve(u).unwrap();
+    let v = sky.solve_norenum(u).unwrap();
     println!("{:?}", v);
 
     assert_float_eq!(v, (0..n).map(|i| i as f64 / 2.).collect(), abs_all <= 1e-12);
