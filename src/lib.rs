@@ -670,6 +670,8 @@ impl Sky {
                 let jp = (ks * np) / n;
                 zp[ip * np + jp] += 1.;
             }
+            let kp = (ks*np)/n;
+            zp[kp * np + kp] += n as f64 / np as f64;
         }
         plotpy(xp, yp, zp);
     }
