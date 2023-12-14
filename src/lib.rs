@@ -720,6 +720,24 @@ impl Sky {
         }
     }
 
+    /// check if the matrix is antisymmetric
+    /// with a tolerance eps
+    pub fn is_antisym(&self, eps: f64) -> bool {
+        let n = self.nrows;
+        assert_eq!(n, self.ncols);
+        for i in 0..n {
+            for j in 0..n {
+                let v = self.get_lu(i, j);
+                let w = self.get_lu(j, i);
+                if (v + w).abs() > eps {
+                    println!("i={} j={} v={} w={}", i, j, v, w);
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     /// Returns the value at position (i,j) in L-I+U.
     /// Fails if (i,j) is not in the profile or the skyline.
     /// Used for debug.
