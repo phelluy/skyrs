@@ -724,6 +724,7 @@ impl Sky {
     /// with a tolerance eps
     pub fn is_antisym(&self, eps: f64) -> bool {
         let n = self.nrows;
+        let mut res = true;
         assert_eq!(n, self.ncols);
         for i in 0..n {
             for j in 0..n {
@@ -731,11 +732,11 @@ impl Sky {
                 let w = self.get_lu(j, i);
                 if (v + w).abs() > eps {
                     println!("i={} j={} v={} w={}", i, j, v, w);
-                    return false;
+                    res = false;
                 }
             }
         }
-        true
+        res
     }
 
     /// Returns the value at position (i,j) in L-I+U.
