@@ -45,10 +45,10 @@ fn main() {
     let yp: Vec<f64> = (0..ny + 1).map(|i| i as f64 * dy).collect();
     plotpy(xp.clone(), yp.clone(), zp);
 
-    plotpy(xp, yp, m.get_sigma());
+
 
     println!("Matrix plot...");
-    m.plot(100);
+    m.plot("matrix_pattern", 100).unwrap();
 
     /////////////// Neumann //////////////////////////////
 

@@ -55,8 +55,7 @@ pub struct Sky {
     /// permutation
     sigma: Vec<usize>,
     inv_sigma: Vec<usize>,
-    /// subdomain indicator
-    color: Vec<f64>,
+
     bisection: HashMap<(usize, usize), (usize, usize, usize, usize)>,
 }
 
@@ -359,7 +358,7 @@ impl Sky {
         };
         let sigma: Vec<usize> = (0..nrows).collect();
         let inv_sigma = sigma.clone();
-        let color: Vec<f64> = vec![0.; nrows];
+
         let bisection = HashMap::new();
         let mut sky = Sky {
             coo,
@@ -372,7 +371,7 @@ impl Sky {
             utab: vec![vec![]; ncols],
             sigma,
             inv_sigma,
-            color,
+
             bisection,
         };
         sky.compress();
@@ -536,11 +535,6 @@ impl Sky {
         if nmax - nmin > (n / ncpus) {
             let (nb, n0, n1, n2) = self.bisection_bfs(nmin, nmax);
             self.bisection.insert((nmin, nmax), (nb, n0, n1, n2));
-            self.color[nmin..n0]
-                .iter_mut()
-                .for_each(|c| *c = nmin as f64);
-            self.color[n0..n1].iter_mut().for_each(|c| *c = n0 as f64);
-            self.color[n1..n2].iter_mut().for_each(|c| *c = n1 as f64);
             self.bisection_iter(nmin, n0);
             self.bisection_iter(n0, n1);
         }
@@ -552,26 +546,46 @@ impl Sky {
 
     /// Renumbers the nodes with a Breadth First Search (BFS).
     /// The matrix graph is supposed to be connected and symmetrized
-    pub fn bfs_renumber(&mut self, start: usize) {
+    pub fn bfs_renumber(&mut self, _start: usize) {
         let n = self.nrows;
         assert_eq!(n, self.ncols);
-        let mut permut: Vec<usize> = vec![];
-        // remember the locally visited nodes
-        let mut visited: Vec<bool> = vec![false; n];
-        visited[start] = true;
-        permut.push(start);
-
-        for loc in 0..n {
-            let sloc = permut[loc];
-            for i in self.rowstart[sloc]..self.rowstart[sloc + 1] {
-                let (_, j, _) = self.coo[i];
-                if !visited[j] {
-                    visited[j] = true;
-                    permut.push(j);
-                }
+        
+        // Build temporary undirected adjacency list
+        // This avoids modifying self.coo with explicit zeros (coo_sym)
+        let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
+        for (i, j, _) in self.coo.iter() {
+            if *i != *j { // ignore self-loops
+                adj[*i].push(*j);
+                adj[*j].push(*i);
             }
         }
-        assert!(permut.len() == n, "The graph matrix is not connected.");
+
+        let mut permut: Vec<usize> = vec![];
+        let mut visited: Vec<bool> = vec![false; n];
+        
+        // Loop to handle disconnected graphs (multiple connected components)
+        for start_node in 0..n {
+             if !visited[start_node] {
+                visited[start_node] = true;
+                permut.push(start_node);
+                
+                // Process the current component
+                let mut loc = permut.len() - 1;
+                while loc < permut.len() {
+                    let sloc = permut[loc];
+                    // Visit neighbors using the undirected adjacency list
+                    for &j in &adj[sloc] {
+                        if !visited[j] {
+                            visited[j] = true;
+                            permut.push(j);
+                        }
+                    }
+                    loc += 1;
+                }
+             }
+        }
+        
+        assert_eq!(permut.len(), n, "Permutation length mismatch!");
         permut[0..n].reverse();
         self.set_permut(permut);
     }
@@ -613,7 +627,7 @@ impl Sky {
         let n = self.nrows;
         // self.sigma = (0..self.nrows).collect();
         // self.inv_sigma = self.sigma.clone();
-        self.color = vec![0.; n];
+
         self.bisection = HashMap::new();
         self.sky = vec![];
         self.prof = vec![];
@@ -650,43 +664,152 @@ impl Sky {
     /// Plots the sparsity pattern of the matrix on
     /// a picture with np x np pixels.
     /// Each pixel represents a non-zeros count.
-    pub fn plot(&self, np: usize) {
-        let n = self.ncols;
-        assert_eq!(n, self.nrows);
-        let npmax = np * np;
-        let xp: Vec<f64> = (0..np).map(|i| i as f64 * n as f64 / np as f64).collect();
-        let yp: Vec<f64> = (0..np)
-            .map(|i| (np - i) as f64 * n as f64 / np as f64)
-            .collect();
-        let mut zp = vec![0.; npmax];
-        for ks in 0..n {
-            for js in self.prof[ks]..ks {
-                let ip = (ks * np) / n;
-                let jp = (js * np) / n;
-                zp[ip * np + jp] += 1.;
-            }
-            for is in self.sky[ks]..ks {
-                let ip = (is * np) / n;
-                let jp = (ks * np) / n;
-                zp[ip * np + jp] += 1.;
-            }
-            let kp = (ks*np)/n;
-            zp[kp * np + kp] += n as f64 / np as f64;
+    /// Plots the sparsity pattern of the matrix to a PNG file.
+    /// np x np is the image resolution.
+    /// The file is saved in the system temp directory with the given filename.
+    /// Plots the matrix values (heatmap) to a PNG file.
+    /// np x np is the image resolution.
+    /// The file is saved in the system temp directory with the given filename.
+    /// Colors represent the average magnitude of values in each pixel (White=0 -> Blue -> Red=Max).
+    pub fn plot(&self, filename: &str, np: u32) -> Result<String, String> {
+        let n: usize = self.nrows;
+        if n == 0 {
+            return Err("Matrix is empty".to_string());
         }
-        plotpy(xp, yp, zp);
+        assert_eq!(n, self.ncols);
+
+        let np_usize = np as usize;
+        let mut grid_sum = vec![0.0f64; np_usize * np_usize];
+        let mut grid_count = vec![0usize; np_usize * np_usize];
+
+        // Helper to accumulate value into grid
+        let mut add_val = |r: usize, c: usize, val: f64| {
+            let val = val.abs(); // Use magnitude
+            
+            let x0 = (c as u64 * np as u64 / n as u64) as usize;
+            let y0 = (r as u64 * np as u64 / n as u64) as usize;
+            let x1 = ((c + 1) as u64 * np as u64 / n as u64) as usize;
+            let y1 = ((r + 1) as u64 * np as u64 / n as u64) as usize;
+
+            // Ensure at least 1 pixel is covered
+            let x1 = x1.max(x0 + 1).min(np_usize);
+            let y1 = y1.max(y0 + 1).min(np_usize);
+
+            for py in y0..y1 {
+                for px in x0..x1 {
+                    let idx = py * np_usize + px;
+                    grid_sum[idx] += val;
+                    grid_count[idx] += 1;
+                }
+            }
+        };
+
+        // Iterate L part (rows)
+        for i in 0..n {
+            let start = self.prof[i];
+            for j in start..i {
+                let val = self.ltab[i][j - start];
+                add_val(i, j, val);
+            }
+        }
+
+        // Iterate U part (columns, including diagonal)
+        for j in 0..n {
+            let start = self.sky[j];
+            for i in start..=j {
+                let val = self.utab[j][i - start];
+                add_val(i, j, val); // stored as col j, row i
+            }
+        }
+
+        // Find max average magnitude for normalization
+        let mut max_avg = 0.0;
+        for i in 0..grid_sum.len() {
+            if grid_count[i] > 0 {
+                let avg = grid_sum[i] / grid_count[i] as f64;
+                if avg > max_avg {
+                    max_avg = avg;
+                }
+            }
+        }
+        
+        if max_avg == 0.0 { max_avg = 1.0; } // Avoid division by zero for zero matrix
+
+        let mut img = image::ImageBuffer::new(np, np);
+
+        // Colormap: Jet (Matplotlib Style) for values > 0
+        // 0 -> White (Background for clarity)
+        // Values > 0 map to Jet: Blue -> Cyan -> Yellow -> Red
+        let colors = vec![
+            (0.0, 0u8, 0u8, 255u8),      // Blue
+            (0.35, 0u8, 255u8, 255u8),   // Cyan
+            (0.65, 255u8, 255u8, 0u8),   // Yellow
+            (1.0, 255u8, 0u8, 0u8),      // Red
+        ];
+
+        for (x, y, pixel) in img.enumerate_pixels_mut() {
+            let idx = (y as usize) * np_usize + (x as usize);
+            let count = grid_count[idx];
+            
+            if count == 0 {
+                 *pixel = image::Rgb([0u8, 0u8, 0u8]); // Black background
+            } else {
+                let avg = grid_sum[idx] / count as f64;
+                let intensity = if max_avg > 0. { (avg / max_avg).min(1.0) } else { 0. };
+                
+                // Interpolate Jet
+                let mut r = 0u8;
+                let mut g = 0u8;
+                let mut b = 0u8;
+
+                if intensity <= 0.0 {
+                    // Small non-zero values start at Blue
+                    r = colors[0].1;
+                    g = colors[0].2;
+                    b = colors[0].3;
+                } else if intensity >= 1.0 {
+                    r = colors.last().unwrap().1;
+                    g = colors.last().unwrap().2;
+                    b = colors.last().unwrap().3;
+                } else {
+                    for i in 0..colors.len()-1 {
+                        let c1 = colors[i];
+                        let c2 = colors[i+1];
+                        if intensity >= c1.0 && intensity <= c2.0 {
+                            let t = (intensity - c1.0) / (c2.0 - c1.0);
+                            r = (c1.1 as f64 * (1.0 - t) + c2.1 as f64 * t) as u8;
+                            g = (c1.2 as f64 * (1.0 - t) + c2.2 as f64 * t) as u8;
+                            b = (c1.3 as f64 * (1.0 - t) + c2.3 as f64 * t) as u8;
+                            break;
+                        }
+                    }
+                }
+                *pixel = image::Rgb([r, g, b]);
+            }
+        }
+
+        // Create "tmp_images" directory in current working directory
+        let dir = std::path::Path::new("tmp_images");
+        if !dir.exists() {
+            std::fs::create_dir_all(dir).map_err(|e| format!("Could not create tmp_images dir: {}", e))?;
+        }
+
+        // Generate timestamped filename
+        let now = chrono::Local::now();
+        let timestamp = now.format("%Y%m%d_%H%M%S");
+        let new_filename = format!("{}_{}.png", filename, timestamp);
+        
+        let path = dir.join(new_filename);
+        let path_str = path.to_string_lossy().to_string();
+
+        img.save(&path).map_err(|e| e.to_string())?;
+        
+        println!("Matrix plot saved to: {}", path_str);
+        
+        Ok(path_str)
     }
 
-    /// Gets an array of colored nodes.
-    /// Used for debug.
-    pub fn get_sigma(&self) -> Vec<f64> {
-        let n = self.nrows;
-        let mut c = vec![0.; n];
-        self.color
-            .iter()
-            .enumerate()
-            .for_each(|(k, col)| c[self.sigma[k]] = *col);
-        c
-    }
+
 
     /// Gets the inverse permutation.
     /// Used for debug.
@@ -1099,20 +1222,16 @@ impl Sky {
     pub fn factolu_par(&mut self) {
         let n = self.nrows;
 
-        // the borrow rules of rust imposes this...
-        let prof = self.prof.clone();
-        let sky = self.sky.clone();
-
-        // then call the recursive function
+        // Uses disjoint borrowing to avoid cloning prof and sky
         let kmin = 0;
         let kmax = n;
         factolu_recurse(
             kmin,
             kmax,
-            prof.as_slice(),
-            self.ltab.as_mut_slice(),
-            sky.as_slice(),
-            self.utab.as_mut_slice(),
+            &self.prof,
+            &mut self.ltab,
+            &self.sky,
+            &mut self.utab,
             &self.bisection,
         );
     }
@@ -1148,7 +1267,8 @@ impl Sky {
         let m = self.prof.len();
         if m == 0 {
             // necessary for a correct bfs search
-            self.coo_sym();
+            // necessary for a correct bfs search
+            // self.coo_sym(); // No longer needed as bfs_renumber handles symmetrization internally
             //self.bisection_iter(0, self.nrows);
             self.bfs_renumber(0);
             self.coo_to_sky();
@@ -1343,85 +1463,10 @@ pub fn doolittle_lu(a: &mut Vec<Vec<f64>>) {
     }
 }
 
-fn writepycom() {
-    // use std::path::Path;
-    // if 
-    let pycom = r#"
-from matplotlib.pyplot import *
-from math import *
-import numpy as np
+    /// Plots the sparsity pattern of the matrix to a PNG file.
+    /// np x np is the image resolution.
+    /// The file is saved in the system temp directory with the given filename.
 
-with open("skyrs_plotpy.dat", "r") as f:
-    contenu = f.read().split("\n\n")
-    # print(contenu)
-
-
-x = contenu[0].split()
-nx = len(x) - 1
-x = np.array([float(x[i]) for i in range(nx+1)])
-# print(x)
-y = contenu[1].split()
-ny = len(y) -1
-y = np.array([float(y[i]) for i in range(ny+1)])
-# print(y)
-x , y = np.meshgrid(x,y)
-z = contenu[2].split()
-nz = len(z)
-z = np.array([float(z[i]) for i in range(nz)]).reshape((ny+1,nx+1))
-# print(z)
-# plot(xi, unum, color="blue")
-# plot(xi, uex, color="red")
-# def quit_figure(event):
-#     if event.key == 'q':
-#         close(event.canvas.figure)
-# cid = gcf().canvas.mpl_connect('key_press_event', quit_figure)
-
-
-fig, ax = subplots()
-ax.axis('equal')
-cs = ax.pcolormesh(x,y,z,cmap = 'jet')
-# cs = ax.countourf(x,y,z,100,cmap = 'jet')
-cbar = fig.colorbar(cs)
-
-print("press \'q\' to quit...");
-show()
-"#;
-    use std::fs::File;
-    use std::io::BufWriter;
-    use std::io::Write;
-
-    let meshfile = File::create("skyrs_plot.py").unwrap();
-    let mut meshfile = BufWriter::new(meshfile); // create a buffer for faster writes...
-    writeln!(meshfile, "{}", pycom).unwrap();
-}
-/// Plots a 2D data set using matplotlib.
-fn plotpy(xp: Vec<f64>, yp: Vec<f64>, zp: Vec<f64>) {
-    use std::fs::File;
-    use std::io::BufWriter;
-    use std::io::Write;
-    {
-        writepycom();
-        let meshfile = File::create("skyrs_plotpy.dat").unwrap();
-        let mut meshfile = BufWriter::new(meshfile); // create a buffer for faster writes...
-        xp.iter().for_each(|x| {
-            writeln!(meshfile, "{}", x).unwrap();
-        });
-        writeln!(meshfile).unwrap();
-        yp.iter().for_each(|y| {
-            writeln!(meshfile, "{}", y).unwrap();
-        });
-        writeln!(meshfile).unwrap();
-        zp.iter().for_each(|z| {
-            writeln!(meshfile, "{}", z).unwrap();
-        });
-    } // ensures that the file is closed
-
-    use std::process::Command;
-    Command::new("python3")
-        .arg("skyrs_plot.py")
-        .status()
-        .expect("Plot failed: you need Python3 and Matplotlib in your PATH.");
-}
 
 /// Permutation algorithm used by gauss_solve.
 fn gauss_permute(x: &mut Vec<f64>, sigma: &Vec<usize>) {
@@ -1732,3 +1777,5 @@ fn small_norenum() {
 
 //     assert!(erreur < 1e-13);
 // }
+
+
