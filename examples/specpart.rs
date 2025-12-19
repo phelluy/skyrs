@@ -60,7 +60,7 @@ fn main() {
         let normv: f64 = v.iter().fold(0.0 / 0.0, |m, v| v.max(m));
         // println!("normu={}", normv);
         lambda = normv / normu;
-        v.iter_mut().for_each(|u| (*u /= normv));
+        v.iter_mut().for_each(|u| *u /= normv);
         u = v;
     }
 

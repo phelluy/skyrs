@@ -128,11 +128,10 @@ fn coo_renum_bfs(mut coo: Vec<(usize, usize)>) -> Vec<usize> {
         };
         let sloc = permut[loc];
         // visit the nodes touching physical node sloc
-        for i in rowstart[sloc]..rowstart[sloc + 1] {
-            let (_, j) = coo[i]; // j: physical index
-            if !visited[j] {
-                visited[j] = true;
-                permut.push(j);
+        for (_, j) in &coo[rowstart[sloc]..rowstart[sloc + 1]] {
+            if !visited[*j] {
+                visited[*j] = true;
+                permut.push(*j);
             }
         }
     }
@@ -149,8 +148,8 @@ fn fmt_f64(num: f64, fmt: (usize, usize, usize)) -> String {
         // Safe to `unwrap` as `num` is guaranteed to contain `'e'`
         let exp = num.split_off(num.find('e').unwrap());
 
-        let (sign, exp) = if exp.starts_with("e-") {
-            ('-', &exp[2..])
+        let (sign, exp) = if let Some(stripped) = exp.strip_prefix("e-") {
+            ('-', stripped)
         } else {
             ('+', &exp[1..])
         };
@@ -184,12 +183,12 @@ fn scall(
     let pl = &(ltab[lmin]);
     //    println!("j={} kmin={}",j,kmin);
     let pu = &(utab[j - kmin][umin]);
-    let scal = if size > 0 {
+    
+    if size > 0 {
         unsafe { sysblas::cblas_ddot(size, pl, 1, pu, 1) }
     } else {
         0.
-    };
-    scal
+    }
 }
 
 /// Optimized scalar products of a sub-row of L.
@@ -209,14 +208,14 @@ fn scalu(
     let (lmin, lmax) = (pmin - prof[i], i - prof[i]);
     let (umin, _umax) = (pmin - sky[j], i - sky[j]);
     let size = (lmax - lmin) as i32;
-    let scal = if size > 0 {
+    
+    if size > 0 {
         let pl = &(ltab[i - kmin][lmin]);
         let pu = &(utab[umin]);
         unsafe { sysblas::cblas_ddot(size, pu, 1, pl, 1) }
     } else {
         0.
-    };
-    scal
+    }
 }
 
 /// Performs an LU decomposition on a range of
@@ -322,14 +321,14 @@ pub fn factolu_recurse(
             factolu_par(kmin, kmax, kmin, prof, ltab, sky, utab);
         }
         Some(&(n0, n1, n2, n3)) => {
-            let (mut ltab0, mut ltab1) = ltab.split_at_mut(n1 - kmin);
-            let (mut utab0, mut utab1) = utab.split_at_mut(n1 - kmin);
+            let (ltab0, ltab1) = ltab.split_at_mut(n1 - kmin);
+            let (utab0, utab1) = utab.split_at_mut(n1 - kmin);
             rayon::join(
                 || {
-                    factolu_recurse(n0, n1, prof, &mut ltab0, sky, &mut utab0, bisection);
+                    factolu_recurse(n0, n1, prof, ltab0, sky, utab0, bisection);
                 },
                 || {
-                    factolu_recurse(n1, n2, prof, &mut ltab1, sky, &mut utab1, bisection);
+                    factolu_recurse(n1, n2, prof, ltab1, sky, utab1, bisection);
                 },
             );
             let imin = n2;
@@ -393,7 +392,7 @@ impl Sky {
         // array for finding the boundary nodes
         let mut cross: Vec<bool> = vec![false; ns];
         // initial node: this a logical node in nmin..nmax
-        let start = nmin - nmin;
+        let start = 0;
         // the starting node is visited
         visited[start] = true;
         permut.push(start + nmin);
@@ -481,11 +480,10 @@ impl Sky {
                 let (_, j, _) = self.coo[vois];
                 let js = self.inv_sigma[j];
                 //println!("permut={:?} js={}", self.sigma, js);
-                if js < nmax && js >= nmin {
-                    if split[is - nmin] == 0 && split[js - nmin] != 0 {
+                if js < nmax && js >= nmin
+                    && split[is - nmin] == 0 && split[js - nmin] != 0 {
                         split[js - nmin] = 2;
                     }
-                }
             }
         }
         // construct permutation
@@ -610,11 +608,11 @@ impl Sky {
         assert_eq!(self.nrows, self.ncols);
         let n = self.nrows;
         let mut inv_permut: Vec<usize> = vec![n; n];
-        for i in 0..n {
-            inv_permut[self.sigma[i]] = i;
+        for (i, &s) in self.sigma.iter().enumerate() {
+            inv_permut[s] = i;
         }
-        for i in 0..n {
-            assert_eq!(self.sigma[inv_permut[i]], i);
+        for (i, &s) in inv_permut.iter().enumerate() {
+            assert_eq!(self.sigma[s], i);
         }
         self.inv_sigma = inv_permut;
 
@@ -740,7 +738,7 @@ impl Sky {
         // Colormap: Jet (Matplotlib Style) for values > 0
         // 0 -> White (Background for clarity)
         // Values > 0 map to Jet: Blue -> Cyan -> Yellow -> Red
-        let colors = vec![
+        let colors = [
             (0.0, 0u8, 0u8, 255u8),      // Blue
             (0.35, 0u8, 255u8, 255u8),   // Cyan
             (0.65, 255u8, 255u8, 0u8),   // Yellow
@@ -931,41 +929,6 @@ impl Sky {
         self.utab[j][i - self.sky[j]] = val;
     }
 
-    /// Add fake zeros for symmetrizing the structure of the matrix.
-    fn coo_sym(&mut self) {
-        let nz0 = self.coo.len();
-        let mut _count = 0;
-        let mut ncols = 0;
-        let mut nrows = 0;
-        for k in 0..nz0 {
-            let (i, j, _v) = self.coo[k];
-            ncols = ncols.max(j);
-            nrows = ncols.max(i);
-            // search a non-zero value of the form (j,i,v)
-            let jstart = self.rowstart[j];
-            let jend = self.rowstart[j + 1];
-            let tr = self.coo[jstart..jend]
-                .iter()
-                .position(|(j0, i0, _v0)| *i0 == i && *j0 == j);
-            match tr {
-                None => {
-                    self.coo.push((j, i, 0.));
-                    _count += 1;
-                }
-                Some(_) => {}
-            }
-        }
-        //println!("Add {} elem for sym", _count);
-        // then add a few extradiagonal terms
-        // for ensuring a connected graph
-        assert_eq!(nrows, ncols, "The matrix must be a square matrix");
-        // let n = nrows + 1;
-        // for i in 0..n-1  {
-        //     self.coo.push((i, i + 1, 0.));
-        //     self.coo.push((i + 1, i, 0.));
-        // }
-        self.compress();
-    }
 
     /// Sorts the coo array and combines values with the same (i,j) indices.
     pub fn compress(&mut self) {
@@ -1029,7 +992,7 @@ impl Sky {
 
     /// Matrix vector product using the coo array.
     /// Sequential version.
-    pub fn vec_mult_slow(&self, u: &Vec<f64>) -> Vec<f64> {
+    pub fn vec_mult_slow(&self, u: &[f64]) -> Vec<f64> {
         let mut v: Vec<f64> = vec![0.; self.nrows];
         if u.len() != self.ncols {
             panic!(
@@ -1046,7 +1009,7 @@ impl Sky {
 
     /// Matrix vector product using the coo array.
     /// Parallel version.
-    pub fn vec_mult(&self, u: &Vec<f64>) -> Vec<f64> {
+    pub fn vec_mult(&self, u: &[f64]) -> Vec<f64> {
         let mut v: Vec<f64> = vec![0.; self.nrows];
         if u.len() != self.ncols {
             panic!(
@@ -1068,7 +1031,7 @@ impl Sky {
 
     /// Matrix vector product using the coo array.
     /// Parallel version. Alias of the previous function.
-    pub fn dot(&self, u: &Vec<f64>) -> Vec<f64> {
+    pub fn dot(&self, u: &[f64]) -> Vec<f64> {
         self.vec_mult(u)
     }
 
@@ -1169,8 +1132,8 @@ impl Sky {
             let iiter = self.ltab[i][lmin..lmax].iter();
             let uiter = self.utab[j][umin..umax].iter();
             //slow method
-            let locscal = iiter.zip(uiter).map(|(&l, &u)| l * u).sum();
-            locscal
+            
+            iiter.zip(uiter).map(|(&l, &u)| l * u).sum()
         } else {
             // method with blas/lapack
             let size = (lmax - lmin) as i32;
@@ -1198,8 +1161,8 @@ impl Sky {
             // slow method
             let iiter = self.ltab[i][lmin..lmax].iter();
             let uiter = self.utab[j][umin..umax].iter();
-            let locscal = iiter.zip(uiter).map(|(&l, &u)| l * u).sum();
-            locscal
+            
+            iiter.zip(uiter).map(|(&l, &u)| l * u).sum()
         } else {
             // method with blas/lapack
             let size = (lmax - lmin) as i32;
@@ -1399,7 +1362,7 @@ impl Sky {
 
 /// Inplace Gauss LU decomposition with row pivoting
 /// on a full matrix. For debug purpose.
-pub fn plu_facto(a: &mut Vec<Vec<f64>>, sigma: &mut Vec<usize>) {
+pub fn plu_facto(a: &mut [Vec<f64>], sigma: &mut [usize]) {
     let n = a.len();
     a.iter().for_each(|row| assert_eq!(row.len(), n));
     assert_eq!(a.len(), n);
@@ -1413,8 +1376,8 @@ pub fn plu_facto(a: &mut Vec<Vec<f64>>, sigma: &mut Vec<usize>) {
         // search max pivot
         let mut sup = 0.;
         let mut p_max = p;
-        for i in p..n {
-            let abs_a_ip = (a[i][p]).abs();
+        for (i, row) in a.iter().enumerate().skip(p) {
+            let abs_a_ip = row[p].abs();
             if sup < abs_a_ip {
                 sup = abs_a_ip;
                 p_max = i;
@@ -1442,7 +1405,7 @@ pub fn plu_facto(a: &mut Vec<Vec<f64>>, sigma: &mut Vec<usize>) {
 }
 
 /// Inplace Doolittle LU decomposition on a full matrix.
-pub fn doolittle_lu(a: &mut Vec<Vec<f64>>) {
+pub fn doolittle_lu(a: &mut [Vec<f64>]) {
     let n = a.len();
     a.iter().for_each(|row| assert_eq!(row.len(), n));
     // pivot loop
@@ -1463,13 +1426,9 @@ pub fn doolittle_lu(a: &mut Vec<Vec<f64>>) {
     }
 }
 
-    /// Plots the sparsity pattern of the matrix to a PNG file.
-    /// np x np is the image resolution.
-    /// The file is saved in the system temp directory with the given filename.
-
 
 /// Permutation algorithm used by gauss_solve.
-fn gauss_permute(x: &mut Vec<f64>, sigma: &Vec<usize>) {
+fn gauss_permute(x: &mut [f64], sigma: &[usize]) {
     let n = sigma.len();
     assert_eq!(n, x.len());
     for i in 0..n {
@@ -1484,7 +1443,7 @@ fn gauss_permute(x: &mut Vec<f64>, sigma: &Vec<usize>) {
 /// Triangular solves.
 /// plu_solve must be called first
 /// and this has to be checked by the user before.
-pub fn gauss_solve(a: &Vec<Vec<f64>>, sigma: &Vec<usize>, x: &mut Vec<f64>) {
+pub fn gauss_solve(a: &[Vec<f64>], sigma: &[usize], x: &mut [f64]) {
     let n = a.len();
     assert_eq!(n, x.len());
     a.iter().for_each(|row| assert_eq!(row.len(), n));
@@ -1496,12 +1455,12 @@ pub fn gauss_solve(a: &Vec<Vec<f64>>, sigma: &Vec<usize>, x: &mut Vec<f64>) {
         }
     }
 
-    x[n - 1] = x[n - 1] / a[n - 1][n - 1];
+    x[n - 1] /= a[n - 1][n - 1];
     for i in (0..n - 1).rev() {
         for j in i + 1..n {
             x[i] -= a[i][j] * x[j];
         }
-        x[i] = x[i] / a[i][i];
+        x[i] /= a[i][i];
     }
 }
 
@@ -1530,7 +1489,7 @@ fn diagonal() {
 
     let mut sky = Sky::new(coo);
 
-    let u = (0..n).map(|i| i as f64).collect();
+    let u: Vec<f64> = (0..n).map(|i| i as f64).collect();
 
     let v = sky.vec_mult(&u);
 
@@ -1590,8 +1549,7 @@ fn small_matrix() {
 
     println!("Au={:?}", v1);
 
-    // necessary because this matrix is not symmetric
-    sky.coo_sym();
+
     sky.compress();
 
     let v2 = sky.vec_mult(&u);
@@ -1639,7 +1597,7 @@ fn small_matrix() {
     println!("Facto error={}", fmt_f64(erreur, FMT));
     assert!(erreur < 1e-12);
 
-    let x0 = (1..n + 1).map(|i| i as f64).collect();
+    let x0: Vec<f64> = (1..n + 1).map(|i| i as f64).collect();
 
     let b = sky.vec_mult(&x0);
 
@@ -1725,7 +1683,7 @@ fn small_norenum() {
     println!("Facto error={}", fmt_f64(erreur, FMT));
     assert!(erreur < 1e-12);
 
-    let x0 = (1..n + 1).map(|i| i as f64).collect();
+    let x0: Vec<f64> = (1..n + 1).map(|i| i as f64).collect();
 
     let b = sky.vec_mult(&x0);
 

@@ -3,34 +3,6 @@ Skyline sparse matrix linear solver in Rust.
 
 The skyline format is an old and rusty :-) tool for solving sparse linear systems.
 
-See for instance (among many others)
-
-```bibtex
-@book{dhatt2012finite,
-  title={Finite element method},
-  author={Dhatt, Gouri and Lefran{\c{c}}ois, Emmanuel and Touzot, Gilbert},
-  year={2012},
-  publisher={John Wiley \& Sons}
-}
-```
-
-The parallelization thanks to 
-a nested bisection renumbering is implemented (but not activated by default).
-For a starting point to the nested bisection method, you can see:
-
-```bibtex
-@article{george1973nested,
-  title={Nested dissection of a regular finite element mesh},
-  author={George, Alan},
-  journal={SIAM Journal on Numerical Analysis},
-  volume={10},
-  number={2},
-  pages={345--363},
-  year={1973},
-  publisher={SIAM}
-}
-```
-
 A short description of the method is given in the doc:
 
 [https://github.com/phelluy/skyrs/blob/main/doc/skyline.pdf](https://github.com/phelluy/skyrs/blob/main/doc/skyline.pdf)
@@ -114,14 +86,25 @@ x = x0
 ```
 up to rounding errors.
 
+## Visualization
+
+You can visualize the sparsity pattern and values of the matrix using the `plot` method.
+It generates a PNG heatmap where the pixel color represents the magnitude of the matrix coefficients (Black=0, Blue->Red=Low->High intensity).
+
+```rust
+// Plot the matrix to a 500x500 PNG image
+// The file will be saved in "tmp_images/" with a timestamp
+sky.plot("my_matrix_plot", 500).unwrap();
+```
+
 ## Comments
 
 The library is working fine and can be used without too much worry.
-However, this is a work in progress.
+
 My todo list:
 
--change the implementation for handling other floating point types than f64 (f32 or complex types)
+- change the implementation for handling other floating point types than f64 (f32 or complex types)
 
--optimisation: a better bisection, based for instance on spectral bisection.
+- optimisation: a better bisection, based for instance on spectral bisection. The parallelization, thanks to a nested bisection renumbering is implemented (but not activated by default).
 
--implement some utilities: refinement iterations for improved accuracy, add, multiply and conversion tools. 
+- implement some utilities: refinement iterations for improved accuracy, add, multiply and conversion tools. 
