@@ -28,9 +28,6 @@ For the moment, the `skyrs` library has been tested on
 - Linux
 - Windows Subsystem for Linux (WSL with Ubuntu) in MS Windows 10/11
 
-The parallel version is not very efficient yet. The default method is thus
-sequential. I will try to improve the parallel version when I will have time.
-
 ## Example
 
  ```rust
